@@ -10,15 +10,12 @@ class ProfilePage extends StatelessWidget {
         gradient: LinearGradient(
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
-          colors: [
-            Color(0xFFE2EAF4), // 浅蓝灰渐变顶部
-            Color(0xFFF5F7FA), // 淡灰底色
-          ],
+          colors: [Color(0xFFE2EAF4), Color(0xFFF5F7FA)],
           stops: [0.0, 0.25],
         ),
       ),
       child: Scaffold(
-        backgroundColor: Colors.transparent, // 依托外层渐变
+        backgroundColor: Colors.transparent,
         body: SafeArea(
           child: SingleChildScrollView(
             child: Column(
@@ -42,7 +39,6 @@ class ProfilePage extends StatelessWidget {
     );
   }
 
-  // 退出登录按钮
   Widget _buildLogoutButton(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16.0),
@@ -59,8 +55,9 @@ class ProfilePage extends StatelessWidget {
             ),
           ),
           onPressed: () {
-            // 返回登录页并清空路由栈
-            Navigator.of(context).pushNamedAndRemoveUntil('/login', (route) => false);
+            Navigator.of(
+              context,
+            ).pushNamedAndRemoveUntil('/login', (route) => false);
           },
           child: const Text(
             '退出登录',
@@ -71,7 +68,7 @@ class ProfilePage extends StatelessWidget {
     );
   }
 
-  // 顶部大头像与用户信息
+  // ✅ 修改：大头像改为 assets/img/avatar.jpg
   Widget _buildUserInfo() {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20.0),
@@ -79,7 +76,6 @@ class ProfilePage extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.center,
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          // 左侧信息
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -102,7 +98,6 @@ class ProfilePage extends StatelessWidget {
                 style: TextStyle(fontSize: 13, color: Colors.grey),
               ),
               const SizedBox(height: 12),
-              // 小标签
               Container(
                 padding: const EdgeInsets.symmetric(
                   horizontal: 10,
@@ -139,7 +134,6 @@ class ProfilePage extends StatelessWidget {
               ),
             ],
           ),
-          // 右侧大头像
           Container(
             width: 80,
             height: 80,
@@ -155,9 +149,13 @@ class ProfilePage extends StatelessWidget {
                 ),
               ],
             ),
-            child: const CircleAvatar(
-              backgroundColor: Color(0xFFF0F2F5),
-              child: Icon(Icons.person, size: 40, color: Colors.grey),
+            child: ClipOval(
+              child: Image.asset(
+                'assets/img/avatar.jpg',
+                width: 80,
+                height: 80,
+                fit: BoxFit.cover,
+              ),
             ),
           ),
         ],
@@ -165,7 +163,7 @@ class ProfilePage extends StatelessWidget {
     );
   }
 
-  // 农场所属小卡片 (对应图中的 "xxx的家")
+  // ✅ 修改：农场卡片中的小头像改为 assets/img/avatar.jpg
   Widget _buildFarmCard() {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16.0),
@@ -205,25 +203,56 @@ class ProfilePage extends StatelessWidget {
             ),
             Row(
               children: [
-                // 成员小头像占位
-                const CircleAvatar(
-                  radius: 16,
-                  backgroundColor: Color(0xFFF0F2F5),
-                  child: Icon(Icons.person, size: 18, color: Colors.grey),
-                ),
-                const SizedBox(width: 8),
-                // 添加按钮
-                Container(
-                  width: 32,
-                  height: 32,
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFF5F7FA),
-                    shape: BoxShape.circle,
-                    border: Border.all(
-                      color: Colors.grey.withValues(alpha: 0.2),
-                    ),
+                SizedBox(
+                  width: 50,
+                  height: 50,
+                  child: Stack(
+                    clipBehavior: Clip.none,
+                    children: [
+                      Positioned(
+                        left: -35,
+                        child: Container(
+                          width: 50,
+                          height: 50,
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFF5F7FA),
+                            shape: BoxShape.circle,
+                            border: Border.all(
+                              color: Colors.grey.withValues(alpha: 0.2),
+                            ),
+                          ),
+                          padding: const EdgeInsets.all(1),
+                          child: ClipOval(
+                            child: Image.asset(
+                              'assets/img/avatar.jpg',
+                              width: 48,
+                              height: 48,
+                              fit: BoxFit.cover,
+                            ),
+                          ),
+                        ),
+                      ),
+                      Positioned(
+                        left: 0,
+                        child: Container(
+                          width: 50,
+                          height: 50,
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFF5F7FA),
+                            shape: BoxShape.circle,
+                            border: Border.all(
+                              color: Colors.grey.withValues(alpha: 0.2),
+                            ),
+                          ),
+                          child: const Icon(
+                            Icons.add,
+                            size: 22,
+                            color: Colors.grey,
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
-                  child: const Icon(Icons.add, size: 18, color: Colors.grey),
                 ),
               ],
             ),
@@ -233,7 +262,6 @@ class ProfilePage extends StatelessWidget {
     );
   }
 
-  // 第一组设置卡片
   Widget _buildSettingsCard1() {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16.0),
@@ -289,7 +317,6 @@ class ProfilePage extends StatelessWidget {
     );
   }
 
-  // 第二组设置卡片
   Widget _buildSettingsCard2() {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16.0),
@@ -328,7 +355,6 @@ class ProfilePage extends StatelessWidget {
     );
   }
 
-  // 通用的列表项构造器
   Widget _buildListTile({
     required IconData icon,
     required Color iconColor,
