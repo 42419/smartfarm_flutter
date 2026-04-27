@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 
-import 'pageViews/alert_center_page.dart';
 import 'pageViews/data_monitor_page.dart';
 import 'pageViews/device_control_page.dart';
 import 'pageViews/overview_page.dart';
@@ -20,7 +19,6 @@ class _MainPageState extends State<MainPage> {
     OverviewPage(),
     DeviceControlPage(),
     DataMonitorPage(),
-    AlertCenterPage(),
     ProfilePage(),
   ];
 
@@ -50,11 +48,6 @@ class _MainPageState extends State<MainPage> {
             icon: Icon(Icons.show_chart_outlined),
             selectedIcon: Icon(Icons.show_chart),
             label: '数据监测',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.notifications_none_outlined),
-            selectedIcon: Icon(Icons.notifications),
-            label: '告警中心',
           ),
           NavigationDestination(
             icon: Icon(Icons.person_outline),
