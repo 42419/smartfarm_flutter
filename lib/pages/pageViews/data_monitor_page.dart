@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
+import '../../services/device_manager.dart';
 
 class DataMonitorPage extends StatefulWidget {
   const DataMonitorPage({super.key});
@@ -21,7 +22,28 @@ class _DataMonitorPageState extends State<DataMonitorPage> {
   ];
 
   @override
+  void initState() {
+    super.initState();
+    DeviceManager.instance.addListener(_onDeviceUpdate);
+  }
+
+  @override
+  void dispose() {
+    DeviceManager.instance.removeListener(_onDeviceUpdate);
+    super.dispose();
+  }
+
+  void _onDeviceUpdate() {
+    if (mounted) setState(() {});
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final deviceManager = DeviceManager.instance;
+    String _currentTemp = deviceManager.temperature;
+    String _currentHumidity = deviceManager.humidity;
+    String _currentIllumination = deviceManager.illumination;
+
     return Scaffold(
       backgroundColor: const Color(0xFFF5F7FA),
       appBar: AppBar(
@@ -91,7 +113,7 @@ class _DataMonitorPageState extends State<DataMonitorPage> {
                 _buildDataCard(
                   icon: Icons.thermostat,
                   iconColor: Colors.orangeAccent,
-                  val: '26.4',
+                  val: _currentTemp,
                   unit: '°C',
                   label: '温度',
                   range: '15°C ~ 30°C',
@@ -102,7 +124,7 @@ class _DataMonitorPageState extends State<DataMonitorPage> {
                 _buildDataCard(
                   icon: Icons.water_drop_outlined,
                   iconColor: Colors.blueAccent,
-                  val: '68',
+                  val: _currentHumidity,
                   unit: '%',
                   label: '空气湿度',
                   range: '40% ~ 80%',
@@ -124,7 +146,7 @@ class _DataMonitorPageState extends State<DataMonitorPage> {
                 _buildDataCard(
                   icon: Icons.wb_sunny_outlined,
                   iconColor: Colors.yellow.shade700,
-                  val: '3200',
+                  val: _currentIllumination,
                   unit: '',
                   label: '光照强度(lux)',
                   range: '1000 ~ 8000',

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../services/device_manager.dart';
 
 class DeviceControlPage extends StatefulWidget {
   const DeviceControlPage({super.key});
@@ -11,15 +12,39 @@ class _DeviceControlPageState extends State<DeviceControlPage> {
   int _selectedTabIndex = 0;
   final List<String> _tabs = ['全部', '灌溉设备', '通风设备', '补光设备', '水肥设备'];
 
-  // 模拟设备状态数据
+  // 模拟（未对接的）设备状态数据
   bool pump1 = false;
   bool pump2 = true;
-  bool fan1 = true;
   bool window3 = true;
-  bool light2 = true;
+
+  @override
+  void initState() {
+    super.initState();
+    // 监听全局设备管理器的数据更新通知
+    DeviceManager.instance.addListener(_onDeviceUpdate);
+  }
+
+  @override
+  void dispose() {
+    DeviceManager.instance.removeListener(_onDeviceUpdate);
+    super.dispose();
+  }
+
+  void _onDeviceUpdate() {
+    if (mounted) {
+      setState(() {});
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
+    // 从单例获取最新设备数据
+    final deviceManager = DeviceManager.instance;
+    bool fan1 = deviceManager.motorStatus;
+    bool light2 = deviceManager.lightStatus;
+    String _currentTemp = deviceManager.temperature == '--' ? '--℃' : '${deviceManager.temperature}℃';
+    String _currentIllumination = deviceManager.illumination == '--' ? '-- lux' : '${deviceManager.illumination} lux';
+
     return Scaffold(
       backgroundColor: const Color(0xFFF5F7FA),
       appBar: AppBar(
@@ -150,10 +175,12 @@ class _DeviceControlPageState extends State<DeviceControlPage> {
                     statusTextOff: '已关闭',
                     attributes: [
                       {'label': '风速', 'value': fan1 ? '2 级' : '0 级'},
-                      {'label': '当前温度', 'value': '26.8℃'},
+                      {'label': '当前温度', 'value': _currentTemp},
                     ],
                     isOn: fan1,
-                    onChanged: (val) => setState(() => fan1 = val),
+                    onChanged: (val) {
+                      deviceManager.controlDevice('motor_control', val ? 'ON' : 'OFF');
+                    },
                     icons: [Icons.access_time, Icons.monitor],
                   ),
                   const SizedBox(height: 12),
@@ -165,7 +192,7 @@ class _DeviceControlPageState extends State<DeviceControlPage> {
                     statusTextOff: '已关闭',
                     attributes: [
                       {'label': '开度', 'value': window3 ? '45%' : '0%'},
-                      {'label': '当前温度', 'value': '29.2℃'},
+                      {'label': '当前温度', 'value': _currentTemp},
                     ],
                     isOn: window3,
                     onChanged: (val) => setState(() => window3 = val),
@@ -181,17 +208,19 @@ class _DeviceControlPageState extends State<DeviceControlPage> {
                     Colors.orangeAccent,
                   ),
                   _buildDeviceCard(
-                    title: 'LED补光灯 #002',
-                    location: '2号大棚',
+                    title: 'LED补光灯 #001',
+                    location: '1号大棚',
                     runtimeDay: '22',
                     statusTextOn: '运行中',
                     statusTextOff: '已关闭',
                     attributes: [
                       {'label': '亮度', 'value': light2 ? '75%' : '0%'},
-                      {'label': '环境光照', 'value': '3200 lux'},
+                      {'label': '环境光照', 'value': _currentIllumination},
                     ],
                     isOn: light2,
-                    onChanged: (val) => setState(() => light2 = val),
+                    onChanged: (val) {
+                      deviceManager.controlDevice('light_control', val ? 'ON' : 'OFF');
+                    },
                     icons: [Icons.access_time],
                   ),
                   const SizedBox(height: 20),
