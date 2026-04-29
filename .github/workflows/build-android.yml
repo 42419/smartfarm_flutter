@@ -1,0 +1,63 @@
+name: Build Android APK
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Build Android APK
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.38.x'
+          channel: stable
+
+      - name: Create local.properties
+        run: echo "flutter.sdk=$FLUTTER_ROOT" > android/local.properties
+
+      - name: Create config.dart
+        run: |
+          cat > lib/config/config.dart << 'CONFIGEOF'
+          class Config {
+            static const String supabaseUrl = '${{ secrets.SUPABASE_URL }}';
+            static const String supabaseAnonKey = '${{ secrets.SUPABASE_ANON_KEY }}';
+            static const String supabaseGreenhouse = '${{ secrets.SUPABASE_GREENHOUSE || 'east-suburb-farm' }}';
+            static const String iamAuthUrl = '${{ secrets.IAM_AUTH_URL || 'https://iam.cn-north-4.myhuaweicloud.com/v3/auth/tokens' }}';
+            static const String iamUser = '${{ secrets.IAM_USER }}';
+            static const String iamPassword = '${{ secrets.IAM_PASSWORD }}';
+            static const String iamDomain = '${{ secrets.IAM_DOMAIN }}';
+            static const String iamProject = '${{ secrets.IAM_PROJECT || 'cn-north-4' }}';
+            static const String iotCommandUrl = '${{ secrets.IOT_COMMAND_URL }}';
+            static const String iotInstanceId = '${{ secrets.IOT_INSTANCE_ID }}';
+            static const String iotServiceId = '${{ secrets.IOT_SERVICE_ID || 'smartFarm' }}';
+            static const String webSocketUrl = '${{ secrets.WEB_SOCKET_URL }}';
+          }
+          CONFIGEOF
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Generate native splash
+        run: dart run flutter_native_splash:create
+
+      - name: Build APK (release)
+        run: flutter build apk --release
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: smart_farm-release-apk
+          path: build/app/outputs/flutter-apk/app-release.apk
+          retention-days: 30
