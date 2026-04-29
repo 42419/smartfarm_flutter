@@ -50,3 +50,7 @@ app.*.map.json
 
 # API Config
 lib/config/config.dart
+
+.agents/
+skills-lock.json
+supabase/

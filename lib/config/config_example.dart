@@ -1,4 +1,9 @@
 class Config {
+  // Supabase 配置
+  static const String supabaseUrl = 'https://your-project-ref.supabase.co';
+  static const String supabaseAnonKey = 'your_supabase_anon_key';
+  static const String supabaseGreenhouse = 'east-suburb-farm';
+
   // 华为云 IAM 鉴权配置
   static const String iamAuthUrl = 'https://iam.cn-north-4.myhuaweicloud.com/v3/auth/tokens';
   static const String iamUser = 'your_iam_username';

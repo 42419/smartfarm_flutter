@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../services/app_feedback.dart';
 import '../../services/device_manager.dart';
 
 class DeviceControlPage extends StatefulWidget {
@@ -8,9 +9,13 @@ class DeviceControlPage extends StatefulWidget {
   State<DeviceControlPage> createState() => _DeviceControlPageState();
 }
 
-class _DeviceControlPageState extends State<DeviceControlPage> {
+class _DeviceControlPageState extends State<DeviceControlPage>
+    with AutomaticKeepAliveClientMixin {
   int _selectedTabIndex = 0;
   final List<String> _tabs = ['全部', '灌溉设备', '通风设备', '补光设备', '水肥设备'];
+
+  @override
+  bool get wantKeepAlive => true;
 
   // 模拟（未对接的）设备状态数据
   bool pump1 = false;
@@ -38,6 +43,7 @@ class _DeviceControlPageState extends State<DeviceControlPage> {
 
   @override
   Widget build(BuildContext context) {
+    super.build(context);
     // 从单例获取最新设备数据
     final deviceManager = DeviceManager.instance;
     bool fan1 = deviceManager.motorStatus;
@@ -53,28 +59,7 @@ class _DeviceControlPageState extends State<DeviceControlPage> {
           style: TextStyle(color: Colors.black87, fontWeight: FontWeight.bold),
         ),
         backgroundColor: Colors.white,
-        elevation: 0,
-        actions: [
-          Padding(
-            padding: const EdgeInsets.only(right: 16.0),
-            child: TextButton(
-              onPressed: () {},
-              style: TextButton.styleFrom(
-                backgroundColor: const Color(0xFFEBF3FF),
-                foregroundColor: Colors.blueAccent,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                minimumSize: const Size(0, 32),
-                padding: const EdgeInsets.symmetric(horizontal: 12),
-              ),
-              child: const Text(
-                '批量控制',
-                style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
-              ),
-            ),
-          ),
-        ],
+        elevation: 0
       ),
       body: Column(
         children: [
@@ -116,6 +101,59 @@ class _DeviceControlPageState extends State<DeviceControlPage> {
               ),
             ),
           ),
+
+          // 快捷操作
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+            child: Row(
+              children: [
+                Expanded(
+                  child: _buildQuickOpButton(
+                    '一键灌溉',
+                    Icons.water_drop,
+                    Colors.blueAccent,
+                    onTap: () {
+                      final anyOff = !pump1 || !pump2;
+                      setState(() {
+                        pump1 = anyOff;
+                        pump2 = anyOff;
+                      });
+                      showAppToast(
+                        anyOff ? '灌溉泵已全部开启' : '灌溉泵已全部关闭',
+                      );
+                    },
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: _buildQuickOpButton(
+                    '一键通风',
+                    Icons.air,
+                    Colors.green,
+                    onTap: () {
+                      final target = !fan1;
+                      deviceManager.controlDevice(
+                          'motor_control', target ? 'ON' : 'OFF');
+                    },
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: _buildQuickOpButton(
+                    '一键补光',
+                    Icons.wb_sunny,
+                    Colors.orangeAccent,
+                    onTap: () {
+                      final target = !light2;
+                      deviceManager.controlDevice(
+                          'light_control', target ? 'ON' : 'OFF');
+                    },
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 8),
 
           // 设备列表
           Expanded(
@@ -406,6 +444,34 @@ class _DeviceControlPageState extends State<DeviceControlPage> {
             ],
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildQuickOpButton(String title, IconData icon, Color color, {VoidCallback? onTap}) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 14),
+        decoration: BoxDecoration(
+          color: color,
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Column(
+          children: [
+            Icon(icon, color: Colors.white, size: 26),
+            const SizedBox(height: 6),
+            Text(
+              title,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 12,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

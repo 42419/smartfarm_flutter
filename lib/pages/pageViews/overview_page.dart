@@ -1,11 +1,50 @@
 import 'package:flutter/material.dart';
 import 'alert_center_page.dart';
+import '../../models/crop.dart';
+import '../../services/crop_service.dart';
+import '../crop_detail_page.dart';
 
-class OverviewPage extends StatelessWidget {
+class _HealthInfo {
+  final Color bgColor;
+  final Color mainColor;
+  const _HealthInfo(this.bgColor, this.mainColor);
+}
+
+class OverviewPage extends StatefulWidget {
   const OverviewPage({super.key});
 
   @override
+  State<OverviewPage> createState() => _OverviewPageState();
+}
+
+class _OverviewPageState extends State<OverviewPage>
+    with AutomaticKeepAliveClientMixin {
+  List<Crop> _crops = const [];
+  bool _loading = true;
+
+  @override
+  bool get wantKeepAlive => true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadCrops();
+  }
+
+  Future<void> _loadCrops() async {
+    final crops = await CropService.instance.fetchCrops();
+    if (!mounted) {
+      return;
+    }
+    setState(() {
+      _crops = crops;
+      _loading = false;
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
+    super.build(context);
     return Scaffold(
       backgroundColor: const Color(0xFFF5F7FA), // 淡灰色背景
       appBar: AppBar(
@@ -190,105 +229,91 @@ class OverviewPage extends StatelessWidget {
             // 大棚卡片列表，设置为固定高度并支持独立滑动
             SizedBox(
               height: 250, // 根据需要调整高度
-              child: ListView(
-                physics: const BouncingScrollPhysics(),
-                padding: EdgeInsets.zero,
-                children: [
-                  _buildGreenhouseCard(
-                    '1号大棚 - 番茄',
-                    '土壤湿度偏低',
-                    const Color(0xFFFFF4F4),
-                    Colors.redAccent,
-                    [Icons.water_drop, Icons.air],
-                  ),
-                  const SizedBox(height: 10),
-                  _buildGreenhouseCard(
-                    '2号大棚 - 黄瓜',
-                    '所有参数正常',
-                    const Color(0xFFF4FFF6),
-                    Colors.green,
-                    [Icons.water_drop, Icons.air, Icons.wb_sunny],
-                  ),
-                  const SizedBox(height: 10),
-                  _buildGreenhouseCard(
-                    '3号大棚 - 草莓',
-                    '湿度接近阈值',
-                    const Color(0xFFFFFDE7),
-                    Colors.orangeAccent,
-                    [Icons.water_drop, Icons.air],
-                  ),
-                  const SizedBox(height: 10),
-                  _buildGreenhouseCard(
-                    '4号大棚 - 辣椒',
-                    '所有参数正常',
-                    const Color(0xFFF4FFF6),
-                    Colors.green,
-                    [Icons.water_drop, Icons.wb_sunny],
-                  ),
-                  const SizedBox(height: 10),
-                  _buildGreenhouseCard(
-                    '5号大棚 - 西瓜',
-                    '所有参数正常',
-                    const Color(0xFFF4FFF6),
-                    Colors.green,
-                    [Icons.thermostat, Icons.air],
-                  ),
-                  const SizedBox(height: 10),
-                  _buildGreenhouseCard(
-                    '6号大棚 - 茄子',
-                    '温度偏高',
-                    const Color(0xFFFFF4F4),
-                    Colors.redAccent,
-                    [Icons.thermostat, Icons.air, Icons.water_drop],
-                  ),
-                  const SizedBox(height: 10),
-                  _buildGreenhouseCard(
-                    '7号大棚 - 南瓜',
-                    '所有参数正常',
-                    const Color(0xFFF4FFF6),
-                    Colors.green,
-                    [Icons.water_drop],
-                  ),
-                ],
-              ),
+              child: _loading
+                  ? const Center(child: CircularProgressIndicator())
+                  : _crops.isEmpty
+                      ? const Center(child: Text('暂无大棚数据'))
+                      : ListView.builder(
+                          physics: const BouncingScrollPhysics(),
+                          padding: EdgeInsets.zero,
+                          itemCount: _crops.length,
+                          itemBuilder: (context, index) {
+                            final crop = _crops[index];
+                            final info = _getHealthInfo(crop.health);
+                            return Padding(
+                              padding: EdgeInsets.only(
+                                bottom: index < _crops.length - 1 ? 10 : 0,
+                              ),
+                              child: GestureDetector(
+                                onTap: () {
+                                  Navigator.of(context).push(
+                                    MaterialPageRoute(
+                                      builder: (context) => CropDetailPage(
+                                        crop: crop,
+                                        greenhouseIndex: index,
+                                      ),
+                                    ),
+                                  );
+                                },
+                                child: _buildGreenhouseCard(
+                                  '${index + 1}号大棚 - ${crop.cropName}',
+                                  crop.health ?? '状态未知',
+                                  info.bgColor,
+                                  info.mainColor,
+                                  _relevantIcons(crop),
+                                  crop: crop,
+                                ),
+                              ),
+                            );
+                          },
+                        ),
             ),
 
-            const SizedBox(height: 24),
-
-            // 快捷操作
-            const Text(
-              '快捷操作',
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 12),
-            Row(
-              children: [
-                Expanded(
-                  child: _buildQuickOpButton(
-                    '一键灌溉',
-                    Icons.water_drop,
-                    Colors.blueAccent,
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: _buildQuickOpButton('一键通风', Icons.air, Colors.green),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: _buildQuickOpButton(
-                    '一键补光',
-                    Icons.wb_sunny,
-                    Colors.orangeAccent,
-                  ),
-                ),
-              ],
-            ),
             const SizedBox(height: 20),
           ],
         ),
       ),
     );
+  }
+
+  _HealthInfo _getHealthInfo(String? health) {
+    final h = (health ?? '').trim();
+    if (h.contains('异常') || h.contains('偏高') || h.contains('偏低') || h.contains('危险') || h.contains('差')) {
+      return _HealthInfo(const Color(0xFFFFF4F4), Colors.redAccent);
+    }
+    if (h.contains('一般') || h.contains('注意') || h.contains('接近') || h.contains('警告')) {
+      return _HealthInfo(const Color(0xFFFFFDE7), Colors.orangeAccent);
+    }
+    return _HealthInfo(const Color(0xFFF4FFF6), Colors.green);
+  }
+
+  List<IconData> _relevantIcons(Crop crop) {
+    final icons = <IconData>[];
+    final env1 = crop.environmentAnalysis1 ?? 0;
+    final env2 = crop.environmentAnalysis2 ?? 0;
+    final env3 = crop.environmentAnalysis3 ?? 0;
+    final env4 = crop.environmentAnalysis4 ?? 0;
+    final env5 = crop.environmentAnalysis5 ?? 0;
+
+    if (env1 < 80) {
+      icons.add(Icons.water_drop);
+    }
+    if (env2 < 80) {
+      icons.add(Icons.thermostat);
+    }
+    if (env3 < 80) {
+      icons.add(Icons.wb_sunny);
+    }
+    if (env4 < 80) {
+      icons.add(Icons.co2);
+    }
+    if (env5 < 80) {
+      icons.add(Icons.eco);
+    }
+    if (icons.isEmpty) {
+      icons.add(Icons.check_circle);
+    }
+    return icons;
   }
 
   Widget _buildStatusCard(
@@ -392,8 +417,9 @@ class OverviewPage extends StatelessWidget {
     String subtitle,
     Color bgColor,
     Color mainColor,
-    List<IconData> icons,
-  ) {
+    List<IconData> icons, {
+    Crop? crop,
+  }) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       decoration: BoxDecoration(
@@ -403,26 +429,32 @@ class OverviewPage extends StatelessWidget {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                title,
-                style: TextStyle(
-                  fontSize: 15,
-                  fontWeight: FontWeight.bold,
-                  color: mainColor,
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.bold,
+                    color: mainColor,
+                  ),
                 ),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                subtitle,
-                style: TextStyle(
-                  fontSize: 12,
-                  color: mainColor.withValues(alpha: 0.8),
+                const SizedBox(height: 4),
+                Text(
+                  subtitle,
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: mainColor.withValues(alpha: 0.8),
+                  ),
                 ),
-              ),
-            ],
+                if (crop != null) ...[
+                  const SizedBox(height: 6),
+                  _buildCropInfoRow(crop),
+                ],
+              ],
+            ),
           ),
           Row(
             children: icons.map((icon) {
@@ -444,27 +476,36 @@ class OverviewPage extends StatelessWidget {
     );
   }
 
-  Widget _buildQuickOpButton(String title, IconData icon, Color color) {
-    return Container(
-      padding: const EdgeInsets.symmetric(vertical: 16),
-      decoration: BoxDecoration(
-        color: color,
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Column(
-        children: [
-          Icon(icon, color: Colors.white, size: 28),
-          const SizedBox(height: 8),
-          Text(
-            title,
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 13,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-        ],
-      ),
+  Widget _buildCropInfoRow(Crop crop) {
+    if (crop.summary != null && crop.summary!.isNotEmpty) {
+      return Text(
+        crop.summary!,
+        style: const TextStyle(fontSize: 11, color: Colors.black54),
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+      );
+    }
+    final items = <String>[];
+    if (crop.plantDate != null && crop.plantDate!.isNotEmpty) {
+      items.add('种植:${crop.plantDate}');
+    }
+    if (crop.harvestDate != null && crop.harvestDate!.isNotEmpty) {
+      items.add('收获:${crop.harvestDate}');
+    }
+    if (crop.yieldText != null && crop.yieldText!.isNotEmpty) {
+      items.add('产量:${crop.yieldText}');
+    }
+    if (crop.total > 0) {
+      items.add('生长:${((crop.current / crop.total) * 100).toStringAsFixed(0)}%');
+    }
+    if (items.isEmpty) {
+      return const SizedBox();
+    }
+    return Text(
+      items.join('  '),
+      style: const TextStyle(fontSize: 11, color: Colors.black54),
+      maxLines: 1,
+      overflow: TextOverflow.ellipsis,
     );
   }
 }

@@ -31,7 +31,7 @@ class _LoginPageState extends State<LoginPage> {
               ),
               const SizedBox(height: 16),
               const Text(
-                "智慧农业",
+                "禾寻",
                 style: TextStyle(
                   fontWeight: FontWeight.w900,
                   fontSize: 28,
@@ -40,7 +40,7 @@ class _LoginPageState extends State<LoginPage> {
               ),
               const SizedBox(height: 8),
               const Text(
-                "科技赋能，智慧耕种",
+                "寻味自然，追寻良田",
                 style: TextStyle(
                   fontWeight: FontWeight.normal,
                   fontSize: 16,
