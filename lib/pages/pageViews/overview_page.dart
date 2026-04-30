@@ -274,12 +274,12 @@ class _OverviewPageState extends State<OverviewPage> {
             ),
             const SizedBox(height: 24),
 
-            // 环境平均数据
+            // 环境数据
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 const Text(
-                  '环境平均数据',
+                  '环境数据',
                   style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                 ),
                 Text(
@@ -320,7 +320,7 @@ class _OverviewPageState extends State<OverviewPage> {
                         Icons.wb_sunny_outlined,
                         Colors.yellow.shade700,
                         _avgIllumination != null
-                            ? _avgIllumination!.toStringAsFixed(0)
+                            ? '${_avgIllumination!.toStringAsFixed(0)} Lux'
                             : '--',
                         '光照',
                       ),

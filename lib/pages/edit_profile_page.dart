@@ -11,6 +11,7 @@ class EditProfilePage extends StatefulWidget {
 }
 
 class _EditProfilePageState extends State<EditProfilePage> {
+  late final TextEditingController _usernameController;
   late final TextEditingController _nicknameController;
   late final TextEditingController _avatarUrlController;
   late final TextEditingController _bioController;
@@ -25,18 +26,19 @@ class _EditProfilePageState extends State<EditProfilePage> {
   void initState() {
     super.initState();
     final user = AuthService.instance.currentUser;
+    _usernameController = TextEditingController(text: user?.username ?? '');
     _nicknameController = TextEditingController(text: user?.nickname ?? '');
     _avatarUrlController = TextEditingController(text: user?.avatarUrl ?? '');
     _bioController = TextEditingController(text: user?.bio ?? '');
     _phoneController = TextEditingController(text: user?.phone ?? '');
     _emailController = TextEditingController(text: user?.email ?? '');
-    _professionController =
-        TextEditingController(text: user?.profession ?? '');
+    _professionController = TextEditingController(text: user?.profession ?? '');
     _farmController = TextEditingController(text: user?.farm ?? '');
   }
 
   @override
   void dispose() {
+    _usernameController.dispose();
     _nicknameController.dispose();
     _avatarUrlController.dispose();
     _bioController.dispose();
@@ -57,25 +59,14 @@ class _EditProfilePageState extends State<EditProfilePage> {
     setState(() => _loading = true);
 
     final error = await AuthService.instance.updateProfile(
+      username: _usernameController.text.trim().isEmpty ? null : _usernameController.text.trim(),
       nickname: nickname,
-      avatarUrl: _avatarUrlController.text.trim().isEmpty
-          ? null
-          : _avatarUrlController.text.trim(),
-      bio: _bioController.text.trim().isEmpty
-          ? null
-          : _bioController.text.trim(),
-      phone: _phoneController.text.trim().isEmpty
-          ? null
-          : _phoneController.text.trim(),
-      email: _emailController.text.trim().isEmpty
-          ? null
-          : _emailController.text.trim(),
-      profession: _professionController.text.trim().isEmpty
-          ? null
-          : _professionController.text.trim(),
-      farm: _farmController.text.trim().isEmpty
-          ? null
-          : _farmController.text.trim(),
+      avatarUrl: _avatarUrlController.text.trim().isEmpty ? null : _avatarUrlController.text.trim(),
+      bio: _bioController.text.trim().isEmpty ? null : _bioController.text.trim(),
+      phone: _phoneController.text.trim().isEmpty ? null : _phoneController.text.trim(),
+      email: _emailController.text.trim().isEmpty ? null : _emailController.text.trim(),
+      profession: _professionController.text.trim().isEmpty ? null : _professionController.text.trim(),
+      farm: _farmController.text.trim().isEmpty ? null : _farmController.text.trim(),
     );
 
     if (!mounted) return;
@@ -136,6 +127,12 @@ class _EditProfilePageState extends State<EditProfilePage> {
           child: Column(
             children: [
               const SizedBox(height: 10),
+              _buildInputField(
+                controller: _usernameController,
+                hintText: '用户名',
+                icon: Icons.person_outline,
+              ),
+              const SizedBox(height: 14),
               _buildInputField(
                 controller: _nicknameController,
                 hintText: '昵称',

@@ -53,5 +53,4 @@ lib/config/config.dart
 
 .agents/
 skills-lock.json
-supabase/
 docs/

@@ -8,10 +8,11 @@ import '../pages/main_page.dart';
 import '../pages/register_page.dart';
 import '../pages/forgot_password_page.dart';
 import '../pages/edit_profile_page.dart';
+import '../pages/ai_chat_page.dart';
 
-Widget getRootWidget() {
+Widget getRootWidget({String initialRoute = '/login'}) {
   return MaterialApp(
-    initialRoute: '/login',
+    initialRoute: initialRoute,
     routes: getRootRoutes(),
     debugShowCheckedModeBanner: false,
     scaffoldMessengerKey: appScaffoldMessengerKey,
@@ -21,12 +22,13 @@ Widget getRootWidget() {
 
 Map<String, Widget Function(BuildContext)> getRootRoutes() {
   return {
-    '/main': (context) => MainPage(key: MainPage.globalKey), // 主页
-    '/login': (context) => LoginPage(), // 登录页
-    '/alert': (context) => AlertCenterPage(), // 预警中心
-    '/sensor-history': (context) => const SensorHistoryPage(), // 历史数据查询
-    '/register': (context) => const RegisterPage(), // 注册页
-    '/forgot-password': (context) => const ForgotPasswordPage(), // 忘记密码页
-    '/edit-profile': (context) => const EditProfilePage(), // 编辑资料页
+    '/main': (context) => MainPage(key: MainPage.globalKey),
+    '/login': (context) => LoginPage(),
+    '/alert': (context) => AlertCenterPage(),
+    '/sensor-history': (context) => const SensorHistoryPage(),
+    '/register': (context) => const RegisterPage(),
+    '/forgot-password': (context) => const ForgotPasswordPage(),
+    '/edit-profile': (context) => const EditProfilePage(),
+    '/ai-chat': (context) => const AiChatPage(),
   };
 }

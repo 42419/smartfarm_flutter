@@ -2,6 +2,7 @@ class Config {
   // Supabase 配置
   static const String supabaseUrl = 'https://your-project-ref.supabase.co';
   static const String supabaseAnonKey = 'your_supabase_anon_key';
+  static const String supabaseServiceRoleKey = 'sb_secret_xxxxxxxxxxxxxxxxxxxxxxxx';
   static const String supabaseGreenhouse = 'east-suburb-farm';
 
   // 华为云 IAM 鉴权配置
@@ -22,4 +23,9 @@ class Config {
   // 高德地图 API 配置
   static const String amapWeatherUrl = "https://restapi.amap.com/v3/weather/weatherInfo";
   static const String amapAuthKey = "xxxxxxxxxxxxxxxxxxxxxxxxxxxx";
+
+  // 扣子 (Coze) AI 平台配置
+  static const String cozeApiUrl = 'https://api.coze.cn/v3/chat';
+  static const String cozeApiToken = 'pat_xxxxxxxxxxxxxxxxxxxxxxxxxxxx';
+  static const String cozeBotId = 'xxxxxxxxxxxxxxxxxxxxx';
 }

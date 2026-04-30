@@ -1,10 +1,10 @@
-import 'dart:convert';
-import 'dart:math';
+import 'dart:async';
 
-import 'package:crypto/crypto.dart';
+import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../config/config.dart';
 import '../models/app_user.dart';
 import 'supabase_service.dart';
 
@@ -14,146 +14,133 @@ class AuthService {
   static final AuthService instance = AuthService._();
 
   AppUser? _currentUser;
+  StreamSubscription<AuthState>? _authSubscription;
 
   AppUser? get currentUser => _currentUser;
+  bool get isLoggedIn => _currentUser != null && Supabase.instance.client.auth.currentSession != null;
 
-  bool get isLoggedIn => _currentUser != null;
+  Future<void> init() async {
+    _authSubscription = Supabase.instance.client.auth.onAuthStateChange.listen((data) {
+      final session = data.session;
+      if (session != null && _currentUser == null) {
+        _loadProfile();
+      } else if (session == null) {
+        _currentUser = null;
+      }
+    });
 
-  String _generateSalt() {
-    final random = Random.secure();
-    final bytes = List<int>.generate(32, (_) => random.nextInt(256));
-    return base64Url.encode(bytes);
-  }
-
-  String _hashPassword(String password, String salt) {
-    final bytes = utf8.encode(password + salt);
-    final digest = sha256.convert(bytes);
-    return digest.toString();
-  }
-
-  String _packPassword(String password) {
-    final salt = _generateSalt();
-    final hash = _hashPassword(password, salt);
-    return '$salt:$hash';
-  }
-
-  bool _verifyPassword(String password, String stored) {
-    final parts = stored.split(':');
-    if (parts.length != 2) {
-      return password == stored;
+    if (Supabase.instance.client.auth.currentSession != null) {
+      await _loadProfile();
     }
-    final salt = parts[0];
-    final expectedHash = _hashPassword(password, salt);
-    return expectedHash == parts[1];
   }
 
-  Future<String?> login(String username, String password) async {
+  Future<void> _loadProfile() async {
     final client = SupabaseService.maybeClient;
-    if (client == null) return '服务未初始化';
+    if (client == null) return;
+
+    final authUser = Supabase.instance.client.auth.currentUser;
+    if (authUser == null) return;
 
     try {
-      var response = await client
-          .from('app_users')
-          .select('*')
-          .eq('username', username)
+      final rows = await client
+          .from('profiles')
+          .select()
+          .eq('id', authUser.id)
           .maybeSingle();
 
-      response ??= await client
-          .from('app_users')
-          .select('*')
-          .eq('phone', username)
-          .maybeSingle();
-
-      if (response == null) {
-        return '账号或密码错误';
+      if (rows != null) {
+        _currentUser = AppUser.fromProfilesRow(rows);
       }
-
-      final user = AppUser.fromSupabase(response);
-
-      if (!_verifyPassword(password, user.password)) {
-        return '账号或密码错误';
-      }
-
-      _currentUser = user;
-      return null;
     } catch (error) {
-      debugPrint('AuthService.login failed: $error');
-      return '登录失败，请稍后再试';
+      debugPrint('_loadProfile failed: $error');
+    }
+  }
+
+  Future<String?> login(String emailOrUsername, String password) async {
+    try {
+      String email = emailOrUsername;
+
+      if (!emailOrUsername.contains('@')) {
+        final lookedUp = await Supabase.instance.client.rpc(
+          'lookup_email_by_username',
+          params: {'p_username': emailOrUsername},
+        );
+        if (lookedUp == null) return '用户不存在';
+        email = lookedUp.toString();
+      }
+
+      await Supabase.instance.client.auth.signInWithPassword(
+        email: email,
+        password: password,
+      );
+      await _loadProfile();
+      return null;
+    } on AuthException catch (e) {
+      return e.message;
+    } catch (e) {
+      return '登录失败: $e';
     }
   }
 
   Future<String?> register({
-    required String username,
+    required String email,
     required String password,
+    required String username,
     required String nickname,
-    String? avatarUrl,
-    String? bio,
-    String? email,
     String? phone,
-    String? profession,
     String? farm,
   }) async {
-    final client = SupabaseService.maybeClient;
-    if (client == null) return '服务未初始化';
-
     try {
-      final existing = await client
-          .from('app_users')
-          .select('username')
-          .eq('username', username)
-          .maybeSingle();
+      final response = await Supabase.instance.client.auth.signUp(
+        email: email,
+        password: password,
+        data: {
+          'username': username,
+          'nickname': nickname,
+          'phone': phone ?? '',
+          'farm': farm ?? '',
+        },
+      );
 
-      if (existing != null) {
-        return '该账号已存在';
+      if (response.user == null) {
+        return '注册失败，请重试';
       }
 
-      await client.from('app_users').insert({
-        'username': username,
-        'password': _packPassword(password),
-        'nickname': nickname,
-        'avatar_url': avatarUrl,
-        'bio': bio,
-        'email': email,
-        'phone': phone,
-        'profession': profession,
-        'farm': farm ?? '',
-      });
-
+      await _loadProfile();
       return null;
-    } catch (error) {
-      debugPrint('AuthService.register failed: $error');
-      return '注册失败，请稍后再试';
+    } on AuthException catch (e) {
+      return e.message;
+    } catch (e) {
+      return '注册失败: $e';
     }
   }
 
-  Future<String?> resetPassword(String username, String newPassword) async {
-    final client = SupabaseService.maybeClient;
-    if (client == null) return '服务未初始化';
-
+  Future<String?> resetPassword(String email, String newPassword) async {
     try {
-      final existing = await client
-          .from('app_users')
-          .select('username')
-          .eq('username', username)
-          .maybeSingle();
+      final response = await Supabase.instance.client.rpc(
+        'get_user_id_by_email',
+        params: {'p_email': email},
+      );
+      final userId = response?.toString();
+      if (userId == null || userId.isEmpty) return '该邮箱未注册';
 
-      if (existing == null) {
-        return '账号不存在';
-      }
-
-      await client
-          .from('app_users')
-          .update({'password': _packPassword(newPassword)})
-          .eq('username', username);
-
+      final dio = Dio();
+      await dio.put(
+        '${Config.supabaseUrl}/auth/v1/admin/users/$userId',
+        data: {'password': newPassword},
+        options: Options(headers: {
+          'Authorization': 'Bearer ${Config.supabaseServiceRoleKey}',
+          'Content-Type': 'application/json',
+        }),
+      );
       return null;
-    } catch (error) {
-      debugPrint('AuthService.resetPassword failed: $error');
-      return '重置密码失败，请稍后再试';
+    } catch (e) {
+      return '重置失败: $e';
     }
   }
 
   Future<String?> updateProfile({
+    String? username,
     String? nickname,
     String? avatarUrl,
     String? bio,
@@ -162,49 +149,51 @@ class AuthService {
     String? profession,
     String? farm,
   }) async {
-    final client = SupabaseService.maybeClient;
-    if (client == null) return '服务未初始化';
     if (_currentUser == null) return '未登录';
 
+    final updates = <String, dynamic>{
+      'updated_at': DateTime.now().toUtc().toIso8601String(),
+    };
+    if (username != null) updates['username'] = username;
+    if (email != null) updates['email'] = email;
+    if (nickname != null) updates['nickname'] = nickname;
+    if (avatarUrl != null) updates['avatar_url'] = avatarUrl;
+    if (bio != null) updates['bio'] = bio;
+    if (phone != null) updates['phone'] = phone;
+    if (profession != null) updates['profession'] = profession;
+    if (farm != null) updates['farm'] = farm;
+
+    final client = SupabaseService.maybeClient;
+    if (client == null) return '数据库未初始化';
+
     try {
-      final updates = <String, dynamic>{};
-      if (nickname != null) updates['nickname'] = nickname;
-      if (avatarUrl != null) updates['avatar_url'] = avatarUrl;
-      if (bio != null) updates['bio'] = bio;
-      if (email != null) updates['email'] = email;
-      if (phone != null) updates['phone'] = phone;
-      if (profession != null) updates['profession'] = profession;
-      if (farm != null) updates['farm'] = farm;
-
-      if (updates.isEmpty) return null;
-
       await client
-          .from('app_users')
+          .from('profiles')
           .update(updates)
-          .eq('username', _currentUser!.username);
+          .eq('id', _currentUser!.id);
 
-      final refreshed = await client
-          .from('app_users')
-          .select('*')
-          .eq('username', _currentUser!.username)
+      final rows = await client
+          .from('profiles')
+          .select()
+          .eq('id', _currentUser!.id)
           .maybeSingle();
-
-      if (refreshed != null) {
-        _currentUser = AppUser.fromSupabase(refreshed);
+      if (rows != null) {
+        _currentUser = AppUser.fromProfilesRow(rows);
       }
-
       return null;
-    } catch (error) {
-      debugPrint('AuthService.updateProfile failed: $error');
-      return '更新失败，请稍后再试';
+    } catch (e) {
+      return '更新失败: $e';
     }
   }
 
   Future<void> logout() async {
     _currentUser = null;
-    final prefs = await SharedPreferences.getInstance();
-    prefs.remove('auto_login_enabled');
-    prefs.remove('auto_login_username');
-    prefs.remove('auto_login_password');
+    try {
+      await Supabase.instance.client.auth.signOut();
+    } catch (_) {}
+  }
+
+  void dispose() {
+    _authSubscription?.cancel();
   }
 }
