@@ -1,4 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+
+import '../services/app_feedback.dart';
+import '../services/auth_service.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -12,24 +16,172 @@ class _LoginPageState extends State<LoginPage> {
   final TextEditingController _passwordController = TextEditingController();
 
   bool _obscureText = true;
-  bool _rememberPassword = false;
+  bool _autoLogin = false;
+  bool _loading = false;
+  bool _autoLoggingIn = true;
+  bool _autoLoginFailed = false;
+
+  static const _keyUsername = 'auto_login_username';
+  static const _keyPassword = 'auto_login_password';
+  static const _keyEnabled = 'auto_login_enabled';
+
+  @override
+  void initState() {
+    super.initState();
+    _tryAutoLogin();
+  }
+
+  Future<void> _tryAutoLogin() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final enabled = prefs.getBool(_keyEnabled) ?? false;
+      if (!enabled) {
+        if (mounted) setState(() => _autoLoggingIn = false);
+        return;
+      }
+
+      final username = prefs.getString(_keyUsername) ?? '';
+      final password = prefs.getString(_keyPassword) ?? '';
+      if (username.isEmpty || password.isEmpty) {
+        await _clearCredentials();
+        if (mounted) setState(() => _autoLoggingIn = false);
+        return;
+      }
+
+      _usernameController.text = username;
+      _passwordController.text = password;
+
+      await Future.delayed(const Duration(milliseconds: 500));
+
+      String? error;
+      for (var i = 0; i < 2; i++) {
+        error = await AuthService.instance.login(username, password);
+        if (error == null) break;
+        if (i == 0) await Future.delayed(const Duration(seconds: 1));
+      }
+
+      if (!mounted) return;
+
+      if (error != null) {
+        await _clearCredentials();
+        if (mounted) {
+          setState(() {
+            _autoLoggingIn = false;
+            _autoLogin = false;
+            _autoLoginFailed = true;
+          });
+        }
+      } else {
+        Navigator.pushNamedAndRemoveUntil(context, "/main", (context) => false);
+      }
+    } catch (e, stack) {
+      debugPrint('Auto-login exception: $e');
+      debugPrintStack(stackTrace: stack);
+      if (mounted) {
+        await _clearCredentials();
+        setState(() {
+          _autoLoggingIn = false;
+          _autoLogin = false;
+          _autoLoginFailed = true;
+        });
+      }
+    }
+  }
+
+  Future<void> _saveCredentials(String username, String password) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_keyEnabled, true);
+    await prefs.setString(_keyUsername, username);
+    await prefs.setString(_keyPassword, password);
+  }
+
+  Future<void> _clearCredentials() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_keyEnabled);
+    await prefs.remove(_keyUsername);
+    await prefs.remove(_keyPassword);
+  }
+
+  @override
+  void dispose() {
+    _usernameController.dispose();
+    _passwordController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _handleLogin() async {
+    final username = _usernameController.text.trim();
+    final password = _passwordController.text;
+
+    if (username.isEmpty) {
+      showAppToast('请输入账号');
+      return;
+    }
+    if (password.isEmpty) {
+      showAppToast('请输入密码');
+      return;
+    }
+
+    setState(() => _loading = true);
+
+    final error = await AuthService.instance.login(username, password);
+
+    if (!mounted) return;
+    setState(() => _loading = false);
+
+    if (error != null) {
+      showAppToast(error);
+    } else {
+      if (_autoLogin) {
+        await _saveCredentials(username, password);
+      }
+      if (!mounted) return;
+      Navigator.pushNamedAndRemoveUntil(context, "/main", (context) => false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    if (_autoLoggingIn) {
+      return Scaffold(
+        backgroundColor: const Color(0xFFFAFAFA),
+        body: Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Image.asset("assets/img/logo.png", width: 120),
+              const SizedBox(height: 16),
+              const Text(
+                "禾寻",
+                style: TextStyle(
+                  fontWeight: FontWeight.w900,
+                  fontSize: 28,
+                  color: Color(0xFF2B3245),
+                ),
+              ),
+              const SizedBox(height: 40),
+              const CircularProgressIndicator(
+                strokeWidth: 2,
+                color: Color(0xFF2B3245),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    return GestureDetector(
+      onTap: () => FocusScope.of(context).unfocus(),
+      child: Scaffold(
       backgroundColor: const Color(0xFFFAFAFA),
       body: SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 24),
           child: Column(
             children: [
-              const SizedBox(height: 60),
-              const Icon(
-                Icons.local_florist_outlined,
-                size: 60,
-                color: Color(0xFF2B3245),
-              ),
-              const SizedBox(height: 16),
+              const SizedBox(height: 80),
+              Image.asset("assets/img/logo.png", width: 120),
+              const SizedBox(height: 20),
               const Text(
                 "禾寻",
                 style: TextStyle(
@@ -47,7 +199,7 @@ class _LoginPageState extends State<LoginPage> {
                   color: Colors.black54,
                 ),
               ),
-              const SizedBox(height: 50),
+              const SizedBox(height: 40),
 
               Container(
                 decoration: BoxDecoration(
@@ -58,9 +210,9 @@ class _LoginPageState extends State<LoginPage> {
                 child: TextField(
                   controller: _usernameController,
                   decoration: const InputDecoration(
-                    hintText: "请输入手机号",
+                    hintText: "请输入用户名或手机号",
                     hintStyle: TextStyle(color: Colors.grey),
-                    prefixIcon: Icon(Icons.phone_outlined, color: Colors.grey),
+                    prefixIcon: Icon(Icons.person_outline, color: Colors.grey),
                     border: InputBorder.none,
                     contentPadding: EdgeInsets.symmetric(vertical: 16),
                   ),
@@ -110,11 +262,14 @@ class _LoginPageState extends State<LoginPage> {
                     width: 24,
                     height: 24,
                     child: Checkbox(
-                      value: _rememberPassword,
+                      value: _autoLogin,
                       onChanged: (value) {
                         setState(() {
-                          _rememberPassword = value ?? false;
+                          _autoLogin = value ?? false;
                         });
+                        if (_autoLogin == false) {
+                          _clearCredentials();
+                        }
                       },
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(4),
@@ -124,7 +279,7 @@ class _LoginPageState extends State<LoginPage> {
                   ),
                   const SizedBox(width: 8),
                   const Text(
-                    "记住密码",
+                    "自动登录",
                     style: TextStyle(color: Colors.grey, fontSize: 14),
                   ),
                 ],
@@ -135,13 +290,7 @@ class _LoginPageState extends State<LoginPage> {
                 width: double.infinity,
                 height: 50,
                 child: OutlinedButton(
-                  onPressed: () {
-                    Navigator.pushNamedAndRemoveUntil(
-                      context,
-                      "/main",
-                      (context) => false,
-                    );
-                  },
+                  onPressed: _loading ? null : _handleLogin,
                   style: OutlinedButton.styleFrom(
                     side: const BorderSide(
                       color: Color(0xFF2B3245),
@@ -153,14 +302,23 @@ class _LoginPageState extends State<LoginPage> {
                       borderRadius: BorderRadius.circular(12),
                     ),
                   ),
-                  child: const Text(
-                    "登 录",
-                    style: TextStyle(
-                      color: Color(0xFF2B3245),
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
+                  child: _loading
+                      ? const SizedBox(
+                          width: 22,
+                          height: 22,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Color(0xFF2B3245),
+                          ),
+                        )
+                      : const Text(
+                          "登 录",
+                          style: TextStyle(
+                            color: Color(0xFF2B3245),
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
                 ),
               ),
               const SizedBox(height: 20),
@@ -170,7 +328,9 @@ class _LoginPageState extends State<LoginPage> {
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   GestureDetector(
-                    onTap: () {},
+                    onTap: () {
+                      Navigator.of(context).pushNamed('/register');
+                    },
                     child: const Text(
                       "注册账号",
                       style: TextStyle(color: Colors.grey, fontSize: 14),
@@ -184,7 +344,9 @@ class _LoginPageState extends State<LoginPage> {
                     ),
                   ),
                   GestureDetector(
-                    onTap: () {},
+                    onTap: () {
+                      Navigator.of(context).pushNamed('/forgot-password');
+                    },
                     child: const Text(
                       "忘记密码",
                       style: TextStyle(color: Colors.grey, fontSize: 14),
@@ -251,26 +413,22 @@ class _LoginPageState extends State<LoginPage> {
 
               const SizedBox(height: 40),
 
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: const [
-                  Icon(
-                    Icons.verified_user_outlined,
-                    color: Colors.grey,
-                    size: 14,
+              if (_autoLoginFailed)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: Text(
+                    "自动登录失败，请手动登录",
+                    style: TextStyle(
+                      color: Colors.orange.shade700,
+                      fontSize: 13,
+                    ),
                   ),
-                  SizedBox(width: 4),
-                  Text(
-                    "安全加密登录，保障您的账号安全",
-                    style: TextStyle(color: Colors.grey, fontSize: 12),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 20),
+                ),
             ],
           ),
         ),
       ),
+      ),
     );
+    }
   }
-}

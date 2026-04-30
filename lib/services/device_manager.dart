@@ -42,6 +42,8 @@ class DeviceManager extends ChangeNotifier {
   String illumination = '--';
   bool motorStatus = false; // 通风设备#001
   bool lightStatus = false; // 补光设备#001
+  bool pump1Status = false; // 灌溉泵#001
+  bool pump2Status = false; // 灌溉泵#002
   final Map<String, _PendingDeviceCommand> _pendingCommands = {};
   final Map<String, Timer> _pendingCommandTimers = {};
 
@@ -82,6 +84,12 @@ class DeviceManager extends ChangeNotifier {
     } catch (e) {
       debugPrint('DeviceManager Error fetching token: $e');
     }
+  }
+
+  void toggleAllIrrigation(bool on) {
+    pump1Status = on;
+    pump2Status = on;
+    notifyListeners();
   }
 
   // 2. 控制硬件设备

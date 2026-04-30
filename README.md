@@ -1,7 +1,8 @@
 # 禾寻 — 智能农业物联网 App
 
 基于 Flutter 开发的智能农业物联网移动端应用，连接华为云 IoTDA 设备管理平台与 Supabase
-云数据库，实现温室大棚传感器数据实时监测、设备远程控制、历史趋势分析与作物管理。
+云数据库，实现温室大棚传感器数据实时监测、设备远程控制、历史趋势分析、作物管理与天气服务。
+内置完整的认证系统（注册/登录/忘记密码/个人资料编辑），支持自动登录与 SHA-256 盐值加密。
 
 ---
 
@@ -9,9 +10,12 @@
 
 ```mermaid
 graph TB
-    subgraph App["📱 Flutter Mobile App"]
+    subgraph App["禾寻APP"]
         subgraph Pages["Page Layer 页面层"]
             LP[LoginPage<br/>登录页]
+            RP[RegisterPage<br/>注册页]
+            FP[ForgotPasswordPage<br/>忘记密码]
+            EP[EditProfilePage<br/>编辑资料]
             MP[MainPage<br/>主框架页]
             SH[SensorHistoryPage<br/>传感器历史]
             CD[CropDetailPage<br/>作物详情]
@@ -26,6 +30,8 @@ graph TB
         end
 
         subgraph SVC["Service Layer 服务层"]
+            AS[AuthService<br/>认证服务 · 单例]
+            WS[WeatherService<br/>天气服务 · 单例]
             DVM[DeviceManager<br/>设备管理 · ChangeNotifier]
             SS[SupabaseService<br/>Supabase 初始化]
             SHS[SensorHistoryService<br/>传感器历史 CRUD]
@@ -38,7 +44,12 @@ graph TB
         MP --> DM
         MP --> PF
 
+        LP --> AS
+        RP --> AS
+        FP --> AS
+        EP --> AS
         OV --> DVM
+        OV --> WS
         DC --> DVM
         DM --> DVM
         SH --> SHS
@@ -50,9 +61,10 @@ graph TB
         SS --> SHS
         SS --> CS
         SS --> DVM
+        SS --> AS
     end
 
-    subgraph Cloud["☁️ Cloud Services"]
+    subgraph Cloud[" Cloud Services"]
         subgraph Supabase["Supabase PostgreSQL"]
             SR[("sensor_readings<br/>传感器读数")]
             CR[("crops<br/>作物数据")]
@@ -65,13 +77,13 @@ graph TB
             MQ[AMQP Queue<br/>消息队列]
         end
 
-        subgraph Bridge["🔄 Bridge 桥接层"]
+        subgraph Bridge[" Bridge 桥接层"]
             WS[WebSocket Server<br/>Port 8083]
             NC[HwIoTAmqpClient.js<br/>AMQP → WebSocket]
         end
     end
 
-    subgraph IoT["🌱 IoT Device Layer 温室设备层"]
+    subgraph IoT[" IoT Device Layer 温室设备层"]
         SENSORS[["温度 · 湿度 · 光照<br/>土壤湿度 · CO₂ · pH"]]
         ACTUATORS[["通风电机 · 补光灯<br/>灌溉泵 · 水肥机"]]
     end
@@ -104,13 +116,13 @@ graph TB
 
 ```mermaid
 sequenceDiagram
-    participant D as 🌱 IoT 设备
-    participant IoTDA as ☁️ 华为云 IoTDA
-    participant AMQP as 🔄 AMQP Bridge
-    participant WS as 📡 WebSocket
-    participant DM as ⚙️ DeviceManager
-    participant UI as 🖥️ Flutter UI
-    participant SB as 🗄️ Supabase
+    participant D as  IoT 设备
+    participant IoTDA as  华为云 IoTDA
+    participant AMQP as  AMQP Bridge
+    participant WS as  WebSocket
+    participant DM as  DeviceManager
+    participant UI as  Flutter UI
+    participant SB as  Supabase
 
     Note over D,SB: === 上行链路：传感器数据上报 ===
 
@@ -143,17 +155,22 @@ sequenceDiagram
 graph LR
     subgraph L1["Presentation 表现层"]
         A1[LoginPage]
-        A2[MainPage]
-        A3[SensorHistoryPage]
-        A4[CropDetailPage]
-        A5[AlertCenterPage]
+        A2[RegisterPage]
+        A3[ForgotPasswordPage]
+        A4[EditProfilePage]
+        A5[MainPage]
+        A6[SensorHistoryPage]
+        A7[CropDetailPage]
+        A8[AlertCenterPage]
     end
 
     subgraph L2["Business 业务逻辑层"]
-        B1[DeviceManager]
-        B2[SensorHistoryService]
-        B3[CropService]
-        B4[SupabaseService]
+        B1[AuthService]
+        B2[WeatherService]
+        B3[DeviceManager]
+        B4[SensorHistoryService]
+        B5[CropService]
+        B6[SupabaseService]
     end
 
     subgraph L3["Data 数据层"]
@@ -179,18 +196,19 @@ graph LR
 
 ## 技术路线
 
-| 层级            | 技术栈                   | 版本                          |
-|---------------|-----------------------|-----------------------------|
+| 层级            | 技术栈                | 版本                        |
+| --------------- | --------------------- | --------------------------- |
 | **UI 框架**     | Flutter (Dart)        | SDK ≥3.11.5 / Flutter ≥3.38 |
-| **HTTP 客户端**  | dio                   | ^5.9.2                      |
-| **WebSocket** | web_socket_channel    | ^3.0.3                      |
-| **数据可视化**     | fl_chart              | ^1.2.0                      |
-| **云数据库**      | Supabase (PostgreSQL) | supabase_flutter ^2.12.0    |
-| **启动屏**       | flutter_native_splash | ^2.4.4                      |
-| **物联网平台**     | 华为云 IoTDA             | IAM + 设备接入                  |
-| **消息桥接**      | Node.js (rhea + ws)   | AMQP 1.0 → WebSocket        |
-| **代码规范**      | flutter_lints         | ^6.0.0                      |
-| **构建工具**      | Gradle (Kotlin DSL)   | AGP 8.11.1 / Kotlin 2.2.20  |
+| **HTTP 客户端** | dio                   | ^5.9.2                      |
+| **WebSocket**   | web_socket_channel    | ^3.0.3                      |
+| **数据可视化**  | fl_chart              | ^1.2.0                      |
+| **云数据库**    | Supabase (PostgreSQL) | supabase_flutter ^2.12.0    |
+| **密码加密**    | crypto                | ^3.0.7                      |
+| **本地存储**    | shared_preferences    | ^2.5.0                      |
+| **物联网平台**  | 华为云 IoTDA          | IAM + 设备接入              |
+| **消息桥接**    | Node.js (rhea + ws)   | AMQP 1.0 → WebSocket        |
+| **代码规范**    | flutter_lints         | ^6.0.0                      |
+| **构建工具**    | Gradle (Kotlin DSL)   | AGP 8.11.1 / Kotlin 2.2.20  |
 
 ---
 
@@ -199,32 +217,38 @@ graph LR
 ```
 smart_farm_flutter/
 ├── lib/
-│   ├── main.dart                          # 应用入口，初始化 Supabase + Splash
+│   ├── main.dart                          # 应用入口，初始化 Supabase + 自动登录
 │   ├── config/
 │   │   ├── config.dart                    # 运行配置（已 gitignore，包含真实密钥）
 │   │   └── config_example.dart            # 配置模板
 │   ├── models/
+│   │   ├── app_user.dart                  # 用户模型（含昵称、头像、简介等）
 │   │   ├── crop.dart                      # 作物数据模型（26 字段）
 │   │   └── sensor_trend_point.dart        # 传感器趋势点模型
 │   ├── routes/
 │   │   └── route.dart                     # 路由表 + MaterialApp 配置
 │   ├── services/
+│   │   ├── auth_service.dart              # 认证服务（注册/登录/忘记密码/自动登录）
+│   │   ├── weather_service.dart           # 天气服务（高德 API + 本地缓存）
 │   │   ├── device_manager.dart            # 设备管理核心（ChangeNotifier）
 │   │   ├── supabase_service.dart          # Supabase 初始化服务
 │   │   ├── sensor_history_service.dart    # 传感器历史数据 CRUD
 │   │   ├── crop_service.dart              # 作物数据服务
 │   │   └── app_feedback.dart              # 全局 Toast 通知
 │   └── pages/
-│       ├── login_page.dart                # 登录页（手机号 + 密码）
+│       ├── login_page.dart                # 登录页（用户名/手机号 + 密码）
+│       ├── register_page.dart             # 注册页（用户名/手机号/密码）
+│       ├── forgot_password_page.dart      # 忘记密码页（手机号验证重置）
+│       ├── edit_profile_page.dart         # 编辑资料页（昵称/头像/简介/邮箱）
 │       ├── main_page.dart                 # 主页（底部 4 Tab）
 │       ├── sensor_history_page.dart       # 传感器历史查询（日历 + 趋势图）
 │       ├── crop_detail_page.dart          # 作物详情页
 │       └── pageViews/
-│           ├── overview_page.dart         # 总览页（农场概览 + 大棚卡片）
+│           ├── overview_page.dart         # 总览页（农场概览 + 天气卡片 + 大棚卡片）
 │           ├── device_control_page.dart   # 设备控制页
 │           ├── data_monitor_page.dart     # 数据监测页（实时 + 趋势）
-│           ├── alert_center_page.dart     # 告警中心页
-│           └── profile_page.dart          # 个人中心页
+│           ├── alert_center_page.dart     # 告警中心页（一键操作 + 设备跳转）
+│           └── profile_page.dart          # 个人中心页（用户信息 + 退出登录）
 ├── android/                               # Android 原生工程
 ├── assets/
 │   ├── img/                               # 图片资源（logo / avatar / 图标）
@@ -273,12 +297,12 @@ smart_farm_flutter/
 
 位置：`lib/services/sensor_history_service.dart`
 
-| 方法                      | 功能                                                            |
-|-------------------------|---------------------------------------------------------------|
-| `recordReading()`       | 将传感器读数写入 `sensor_readings` 表，内置 1 分钟去重防抖                      |
+| 方法                    | 功能                                                                                                  |
+| ----------------------- | ----------------------------------------------------------------------------------------------------- |
+| `recordReading()`       | 将传感器读数写入 `sensor_readings` 表，内置 1 分钟去重防抖                                            |
 | `fetchTrend()`          | 按时间范围（24h/7d/30d）查询数据并分桶聚合（24h 按小时、7d 按星期、30d 按日期），返回折线图所需数据点 |
-| `fetchRecords()`        | 支持起止日期筛选、升降序、分页（limit）的传感器历史记录查询                              |
-| `fetchAvailableDates()` | 查询所有有数据的日期，为日历组件提供可选日期标记                                      |
+| `fetchRecords()`        | 支持起止日期筛选、升降序、分页（limit）的传感器历史记录查询                                           |
+| `fetchAvailableDates()` | 查询所有有数据的日期，为日历组件提供可选日期标记                                                      |
 
 - 土壤湿度兜底估算：若无直接传感器读数，通过温度与湿度的经验公式 `75 - (temp-22)×2 + (hum-60)×0.5`
   估算，并钳位至 [10, 95]
@@ -298,7 +322,34 @@ smart_farm_flutter/
 - 根据消息内容自动判定成功（含"成功"字样，绿色 `#1F7A4D`）或失败（红色 `#B9382F`）
 - 自定义弹性动画（`easeOutBack` 展开 / `easeInCubic` 收起）、圆角 15px、浮动样式、水平滑动关闭
 
-### 6. AMQP-WebSocket 桥接服务 (Node.js)
+### 6. AuthService — 用户认证服务
+
+位置：`lib/services/auth_service.dart`
+
+| 方法                  | 功能                                                                   |
+| --------------------- | ---------------------------------------------------------------------- |
+| `login()`             | 支持用户名或手机号登录，验证 SHA-256(salt+password) 哈希，返回用户信息 |
+| `register()`          | 注册新用户，自动生成 32 字节随机盐值，SHA-256 加密存储密码             |
+| `resetPassword()`     | 通过手机号验证身份后重置密码，重新生成盐值并更新哈希                   |
+| `checkAutoLogin()`    | App 启动时自动读取 SharedPreferences 中的凭据，静默恢复登录状态        |
+| `logout()`            | 清除本地凭据与内存用户状态                                             |
+| `updateProfile()`     | 更新用户昵称、头像 URL、简介、邮箱等个人信息                           |
+| `getUserByUsername()` | 按用户名查询用户记录                                                   |
+
+- 密码安全性：使用 `dart:crypto` 的 SHA-256 对「密码 + 32 字节随机盐」进行哈希，不存储明文
+- 自动登录：登录成功后凭据加密存入 `SharedPreferences`，下次启动自动恢复
+- 关联模型：`AppUser`（`lib/models/app_user.dart`），含 username / nickname / avatarUrl / bio / email / phone / profession / farm
+
+### 7. WeatherService — 天气服务
+
+位置：`lib/services/weather_service.dart`
+
+- 对接高德天气 API，获取当前城市的天气实况（天气现象、温度、风力、湿度）
+- 本地缓存机制：天气数据缓存至 `SharedPreferences`，网络失败时回退到缓存
+- 30 秒刷新间隔：避免频繁请求 API
+- 通过 `singleChildScrollView` 的 `GlobalKey` 触发首页天气卡片刷新
+
+### 8. AMQP-WebSocket 桥接服务 (Node.js)
 
 位置：`assets/iot_amqp/HwIoTAmqpClient.js`
 
@@ -307,21 +358,21 @@ smart_farm_flutter/
 - 使用 `ws` 库启动本地 WebSocket 服务（端口 8083），将 AMQP 消息实时转发给 Flutter App
 - 内建 3 秒心跳保活与自动重连机制
 
-### 7. 数据库设计（Supabase PostgreSQL）
+### 9. 数据库设计（Supabase PostgreSQL）
 
 **sensor_readings（传感器读数表）**
 
-| 列             | 类型               | 说明                         |
-|---------------|------------------|----------------------------|
-| id            | bigint (PK)      | 自增主键                       |
+| 列            | 类型             | 说明                              |
+| ------------- | ---------------- | --------------------------------- |
+| id            | bigint (PK)      | 自增主键                          |
 | greenhouse    | text             | 大棚标识（如 `east-suburb-farm`） |
-| temperature   | double precision | 温度 (°C)                    |
-| humidity      | double precision | 湿度 (%)                     |
-| illumination  | double precision | 光照 (Lux)                   |
-| soil_moisture | double precision | 土壤湿度 (%)                   |
-| co2           | double precision | CO₂ 浓度 (ppm)               |
-| ph_value      | double precision | pH 值                       |
-| recorded_at   | timestamptz      | 记录时间 (UTC)                 |
+| temperature   | double precision | 温度 (°C)                         |
+| humidity      | double precision | 湿度 (%)                          |
+| illumination  | double precision | 光照 (Lux)                        |
+| soil_moisture | double precision | 土壤湿度 (%)                      |
+| co2           | double precision | CO₂ 浓度 (ppm)                    |
+| ph_value      | double precision | pH 值                             |
+| recorded_at   | timestamptz      | 记录时间 (UTC)                    |
 
 索引：`(greenhouse, recorded_at DESC)` 复合索引
 
@@ -335,17 +386,20 @@ smart_farm_flutter/
 
 ## 页面说明
 
-| 页面                    | 路由                | 功能                                                     |
-|-----------------------|-------------------|--------------------------------------------------------|
-| **LoginPage**         | `/login`          | 手机号 + 密码登录；记住密码；三方登录入口（微信/QQ）                          |
-| **MainPage**          | `/main`           | 底部导航 4 Tab：总览、设备控制、数据监测、我的                             |
-| **OverviewPage**      | Tab 1             | 农场名称；设备在线/告警统计；环境均值卡片；大棚卡片列表（可点击进入作物详情）                |
-| **DeviceControlPage** | Tab 2             | 按设备类型筛选 Tab；设备卡片含属性、运行时长、开关控制（通风/补光走真实 IoTDA，灌溉/水肥为模拟） |
-| **DataMonitorPage**   | Tab 3             | 实时数据卡片（温/湿/土/光）；趋势折线图（24h/7d/30d）；跳转历史查询入口             |
-| **SensorHistoryPage** | `/sensor-history` | 自定义日历日期选择器；起止日期筛选；记录数量限制；fl_chart 趋势折线图；详细记录列表         |
-| **CropDetailPage**    | 导航进入              | 作物基本信息；生长进度条；环境分析 5 维评分；问题与建议卡片                        |
-| **AlertCenterPage**   | `/alert`          | 告警统计卡片；未处理/已处理筛选；告警卡片列表（紧急/警告/离线）                      |
-| **ProfilePage**       | Tab 4             | 用户信息；农场卡片；设置菜单；退出登录                                    |
+| 页面                   | 路由               | 功能                                                                                             |
+| ---------------------- | ------------------ | ------------------------------------------------------------------------------------------------ |
+| **LoginPage**          | `/login`           | 用户名/手机号 + 密码登录；记住密码；注册/忘记密码入口；三方登录入口（微信/QQ）                   |
+| **RegisterPage**       | `/register`        | 用户注册：用户名、手机号、密码、确认密码；SHA-256 加密存储                                       |
+| **ForgotPasswordPage** | `/forgot-password` | 手机号验证 + 新密码重置                                                                          |
+| **EditProfilePage**    | `/edit-profile`    | 编辑个人资料：昵称、头像 URL、简介、邮箱、手机号、职业                                           |
+| **MainPage**           | `/main`            | 底部导航 4 Tab：总览、设备控制、数据监测、我的；自动键盘收起                                     |
+| **OverviewPage**       | Tab 1              | 动态农场名；设备在线/告警统计；24h 环境均值卡片；高德天气卡片（优秀/良好颜色区分）；大棚卡片列表 |
+| **DeviceControlPage**  | Tab 2              | 按设备类型筛选 Tab；设备卡片含属性、运行时长、开关控制（通风/补光走真实 IoTDA，灌溉/水肥为模拟） |
+| **DataMonitorPage**    | Tab 3              | 实时数据卡片（温/湿/土/光）；趋势折线图（24h/7d/30d）；跳转历史查询入口                          |
+| **SensorHistoryPage**  | `/sensor-history`  | 自定义日历日期选择器；起止日期筛选；记录数量限制；fl_chart 趋势折线图；详细记录列表              |
+| **CropDetailPage**     | 导航进入           | 作物基本信息；生长进度条；环境分析 5 维评分；问题与建议卡片                                      |
+| **AlertCenterPage**    | `/alert`           | 告警统计卡片；未处理/已处理筛选；一键灌溉/通风；查看设备跳转；左滑忽略持久化；随机生成告警       |
+| **ProfilePage**        | Tab 4              | 用户信息展示（头像/昵称/简介/手机/邮箱）；农场卡片；设置菜单；编辑资料入口；退出登录             |
 
 ---
 
@@ -379,6 +433,7 @@ cp lib/config/config_example.dart lib/config/config.dart
 - `iamUser` / `iamPassword` / `iamDomain`：华为云 IAM 账号信息
 - `iotCommandUrl` / `iotInstanceId`：华为云 IoTDA 实例信息
 - `webSocketUrl`：AMQP 桥接服务的 WebSocket 地址
+- `amapApiKey`：高德天气 API 密钥
 
 ### 3. 初始化 Supabase 数据库
 

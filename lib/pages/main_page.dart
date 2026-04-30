@@ -8,12 +8,24 @@ import 'pageViews/profile_page.dart';
 class MainPage extends StatefulWidget {
   const MainPage({super.key});
 
+  static final GlobalKey<MainPageState> globalKey = GlobalKey<MainPageState>();
+
+  static void switchToTab(int index) {
+    globalKey.currentState?._switchToTab(index);
+  }
+
   @override
-  State<MainPage> createState() => _MainPageState();
+  MainPageState createState() => MainPageState();
 }
 
-class _MainPageState extends State<MainPage> {
+class MainPageState extends State<MainPage> {
   int _currentIndex = 0;
+
+  void _switchToTab(int index) {
+    if (mounted) {
+      setState(() => _currentIndex = index);
+    }
+  }
 
   final List<Widget> _pages = const [
     OverviewPage(),

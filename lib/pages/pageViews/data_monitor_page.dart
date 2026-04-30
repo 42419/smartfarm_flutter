@@ -101,43 +101,13 @@ class _DataMonitorPageState extends State<DataMonitorPage>
           style: TextStyle(color: Colors.black87, fontWeight: FontWeight.bold),
         ),
         backgroundColor: Colors.white,
-        elevation: 0,
-        actions: [
-          Padding(
-            padding: const EdgeInsets.only(right: 16.0),
-            child: TextButton(
-              onPressed: () {},
-              style: TextButton.styleFrom(
-                backgroundColor: const Color(0xFFEBF3FF),
-                foregroundColor: Colors.blueAccent,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                minimumSize: const Size(0, 32),
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-              ),
-              child: const Text(
-                '导出报表',
-                style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
-              ),
-            ),
-          ),
-        ],
+        elevation: 0
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                _buildFilterDropdown('东郊农场'),
-                _buildFilterDropdown('全部大棚'),
-                _buildFilterDropdown('全部指标'),
-              ],
-            ),
-            const SizedBox(height: 24),
             const Text(
               '实时数据',
               style: TextStyle(
@@ -385,30 +355,6 @@ class _DataMonitorPageState extends State<DataMonitorPage>
             const SizedBox(height: 30),
           ],
         ),
-      ),
-    );
-  }
-
-  Widget _buildFilterDropdown(String text) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
-      ),
-      child: Row(
-        children: [
-          Text(
-            text,
-            style: const TextStyle(fontSize: 13, color: Colors.black87),
-          ),
-          const SizedBox(width: 4),
-          const Icon(
-            Icons.keyboard_arrow_down,
-            size: 16,
-            color: Colors.black54,
-          ),
-        ],
       ),
     );
   }

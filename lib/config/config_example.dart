@@ -18,4 +18,8 @@ class Config {
 
   // 本地 AMQP 转发 WebSocket 服务地址
   static const String webSocketUrl = 'ws://192.168.x.x:8083';
+
+  // 高德地图 API 配置
+  static const String amapWeatherUrl = "https://restapi.amap.com/v3/weather/weatherInfo";
+  static const String amapAuthKey = "xxxxxxxxxxxxxxxxxxxxxxxxxxxx";
 }
