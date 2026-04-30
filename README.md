@@ -175,36 +175,15 @@ sequenceDiagram
 
 ```mermaid
 graph LR
-    subgraph L1["Presentation 表现层"]
-        A1[LoginPage]
-        A2[RegisterPage]
-        A3[ForgotPasswordPage]
-        A4[EditProfilePage]
-        A5[MainPage]
-        A6[SensorHistoryPage]
-        A7[CropDetailPage]
-        A8[AlertCenterPage]
-        A9[AiChatPage]
+    subgraph L1["表现层 (Pages)"]
+        UI[Auth 页面组<br/>Main + 4Tab<br/>History / Crop / Alert / AiChat]
     end
-
-    subgraph L2["Business 业务逻辑层"]
-        B1[AuthService]
-        B2[WeatherService]
-        B3[DeviceManager]
-        B4[SensorHistoryService]
-        B5[CropService]
-        B6[SupabaseService]
-        B7[CozeService]
-        B8[AiConversationService]
+    subgraph L2["业务层 (Services)"]
+        BIZ[AuthService · DeviceManager · CozeService<br/>SensorHistory · Crop · Weather<br/>AppFeedback · SupabaseService]
     end
-
-    subgraph L3["Data 数据层"]
-        C1[WebSocket<br/>实时数据流]
-        C2[Supabase REST API<br/>业务数据]
-        C3[IoTDA REST API<br/>设备控制]
-        C4[Coze SSE API<br/>AI 对话]
+    subgraph L3["数据层 (Data)"]
+        DATA[WebSocket 实时流 · Supabase REST<br/>IoTDA 命令 · Coze SSE]
     end
-
     L1 --> L2 --> L3
 ```
 
