@@ -2,8 +2,10 @@
 
 基于 Flutter 开发的智能农业物联网移动端应用，连接华为云 IoTDA 设备管理平台与 Supabase 云数据库，
 集成 **扣子 (Coze) AI 大模型**实现自然语言对话、控制硬件设备与对话历史管理。
-实现温室大棚传感器数据实时监测、设备远程控制、历史趋势分析、作物管理与天气服务。
+实现温室大棚传感器数据实时监测、设备远程控制、历史趋势分析、作物管理与天气服务，
+内置农资商城、购物车、农业服务、设备耗材、农场网络管理等业务模块。
 内置 Supabase Auth 认证系统（注册/登录/忘记密码/个人资料编辑），支持自动登录与 JWT 会话管理。
+支持 Material 3 动态主题（浅色 / 暗黑 / 跟随系统），全局适配语义化 ColorScheme Token。
 
 ---
 
@@ -22,6 +24,11 @@ graph TB
             CD[CropDetailPage<br/>作物详情]
             AL[AlertCenterPage<br/>告警中心]
             AIC[AiChatPage<br/>AI 对话]
+            AM[AgriMallPage<br/>农资商城]
+            ASV[AgriServicePage<br/>农业服务]
+            CP[CartPage<br/>购物车]
+            DS[DeviceSuppliesPage<br/>设备耗材]
+            FN[FarmNetworkPage<br/>农场网络]
         end
 
         subgraph Tabs["Tab Views 标签页"]
@@ -33,11 +40,13 @@ graph TB
 
         subgraph SVC["Service Layer 服务层"]
             AS[AuthService<br/>认证服务 · 单例]
+            TS[ThemeService<br/>主题管理 · 单例]
             WS[WeatherService<br/>天气服务 · 单例]
             DVM[DeviceManager<br/>设备管理 · ChangeNotifier]
             SS[SupabaseService<br/>Supabase 初始化]
             SHS[SensorHistoryService<br/>传感器历史 CRUD]
             CS[CropService<br/>作物数据服务]
+            CartS[CartService<br/>购物车服务 · 单例]
             AF[AppFeedback<br/>全局 Toast]
             CozeS[CozeService<br/>AI 对话 · 流式 SSE]
             AICS[AiConversationService<br/>对话历史 CRUD]
@@ -179,7 +188,7 @@ graph LR
         UI[Auth 页面组<br/>Main + 4Tab<br/>History / Crop / Alert / AiChat]
     end
     subgraph L2["业务层 (Services)"]
-        BIZ[AuthService · DeviceManager · CozeService<br/>SensorHistory · Crop · Weather<br/>AppFeedback · SupabaseService]
+        BIZ[AuthService · DeviceManager · CozeService<br/>SensorHistory · Crop · Weather · ThemeService<br/>CartService · AppFeedback · SupabaseService]
     end
     subgraph L3["数据层 (Data)"]
         DATA[WebSocket 实时流 · Supabase REST<br/>IoTDA 命令 · Coze SSE]
@@ -229,7 +238,7 @@ graph LR
 ```
 smart_farm_flutter/
 ├── lib/
-│   ├── main.dart                          # 应用入口，初始化 Supabase Auth + 自动登录
+│   ├── main.dart                          # 应用入口，初始化 Supabase Auth + ThemeService + 自动登录
 │   ├── config/
 │   │   ├── config.dart                    # 运行配置（已 gitignore，包含真实密钥）
 │   │   └── config_example.dart            # 配置模板
@@ -238,15 +247,19 @@ smart_farm_flutter/
 │   │   ├── crop.dart                      # 作物数据模型（26 字段）
 │   │   ├── sensor_trend_point.dart        # 传感器趋势点模型
 │   │   └── ai_conversation.dart           # AI 对话/消息模型
+│   ├── theme/
+│   │   └── app_theme.dart                 # 主题系统（AppColors 静态色板 + AppTheme 便捷访问器）
 │   ├── routes/
-│   │   └── route.dart                     # 路由表 + MaterialApp 配置
+│   │   └── route.dart                     # 路由表 + MaterialApp 配置（含浅色/暗黑双主题）
 │   ├── services/
 │   │   ├── auth_service.dart              # 认证服务（Supabase Auth 注册/登录/忘记密码/自动登录）
+│   │   ├── theme_service.dart             # 主题服务（浅色/暗黑/跟随系统，SharedPreferences 持久化）
 │   │   ├── weather_service.dart           # 天气服务（高德 API + 本地缓存）
 │   │   ├── device_manager.dart            # 设备管理核心（ChangeNotifier）
 │   │   ├── supabase_service.dart          # Supabase 初始化服务
 │   │   ├── sensor_history_service.dart    # 传感器历史数据 CRUD
 │   │   ├── crop_service.dart              # 作物数据服务
+│   │   ├── cart_service.dart              # 购物车服务（商品增删改查 + ValueNotifier 响应计数）
 │   │   ├── coze_service.dart              # 扣子 Coze AI 对话服务（SSE 流式）
 │   │   ├── ai_conversation_service.dart   # AI 对话历史 CRUD
 │   │   └── app_feedback.dart              # 全局 Toast 通知
@@ -256,15 +269,34 @@ smart_farm_flutter/
 │       ├── forgot_password_page.dart      # 忘记密码页（邮箱验证重置）
 │       ├── edit_profile_page.dart         # 编辑资料页（昵称/头像/简介/邮箱）
 │       ├── main_page.dart                 # 主页（底部 4 Tab + AI 对话入口）
-│       ├── sensor_history_page.dart       # 传感器历史查询（日历 + 趋势图）
-│       ├── crop_detail_page.dart          # 作物详情页
-│       ├── ai_chat_page.dart              # AI 对话页（Markdown 渲染 + 流式打字 + 硬件控制）
-│       └── pageViews/
-│           ├── overview_page.dart         # 总览页（农场概览 + 天气卡片 + 大棚卡片）
-│           ├── device_control_page.dart   # 设备控制页
-│           ├── data_monitor_page.dart     # 数据监测页（实时 + 趋势）
-│           ├── alert_center_page.dart     # 告警中心页（一键操作 + 设备跳转）
-│           └── profile_page.dart          # 个人中心页（用户信息 + 退出登录）
+│       ├── sensor_history/                # 传感器历史查询
+│       │   ├── sensor_history_page.dart   #   - 主页面（日历 + 趋势图）
+│       │   └── widgets/                   #   - 子组件（date_picker / query_form / trend_chart / record_item）
+│       ├── crop_detail/                   # 作物详情
+│       │   ├── crop_detail_page.dart      #   - 主页面
+│       │   └── widgets/                   #   - 子组件
+│       ├── alerts/                        # 告警中心
+│       │   ├── alert_center_page.dart     #   - 主页面
+│       │   └── widgets/                   #   - 子组件
+│       ├── ai_chat/                       # AI 对话
+│       │   └── ai_chat_page.dart          #   - 流式打字 + Markdown 渲染 + 硬件控制
+│       ├── home/                          # 总览 Tab
+│       │   ├── overview_page.dart         #   - 主页面
+│       │   └── widgets/                   #   - 子组件（env_data / greenhouse / weather）
+│       ├── devices/                       # 设备控制 Tab
+│       │   ├── device_control_page.dart   #   - 主页面
+│       │   └── widgets/                   #   - 子组件
+│       ├── monitor/                       # 数据监测 Tab
+│       │   ├── data_monitor_page.dart     #   - 主页面
+│       │   └── widgets/                   #   - 子组件（data_card / trend_section）
+│       └── profile/                       # 个人中心 Tab
+│           ├── profile_page.dart          #   - 主页面
+│           └── widgets/                   #   - 子组件（user_info / farm_card / settings_card）
+│               ├── agri_mall_page.dart    #     农资商城
+│               ├── agri_service_page.dart #     农业服务
+│               ├── cart_page.dart         #     购物车
+│               ├── device_supplies_page.dart #  设备耗材
+│               └── farm_network_page.dart #     农场网络管理
 ├── android/                               # Android 原生工程（含 v21/v31 启动屏 + 暗色模式）
 ├── assets/
 │   ├── img/                               # 图片资源（logo / avatar / 图标）
@@ -422,7 +454,28 @@ smart_farm_flutter/
 | **自动滚动**      | 新消息到达时自动滚动到底部                                                            |
 | **路由**          | `/ai-chat`（从主页面右上角 AI 图标进入）                                              |
 
-### 11. AMQP-WebSocket 桥接服务 (Node.js)
+### 11. ThemeService — 主题管理服务
+
+位置：`lib/services/theme_service.dart`
+
+- **单例模式** + `ValueNotifier<ThemeMode>`：全局唯一实例，`MaterialApp` 通过 `ValueListenableBuilder` 同步主题变化
+- **三种模式**：浅色 (light)、暗黑 (dark)、跟随系统 (system)
+- **持久化**：通过 `SharedPreferences` 保存用户选择的主题模式，App 启动时自动恢复
+- **初始化**：在 `main()` 中调用 `ThemeService.instance.init()` 加载已保存的主题偏好
+- **全局色彩迁移**：全页面硬编码颜色（`Colors.white` / `Colors.grey` 等）已迁移至 `Theme.of(context).colorScheme.*` 语义化 Token，自动适配浅色/暗黑双主题
+- **便捷访问器**：`AppTheme.scaffoldBg()` / `AppTheme.onSurface()` 等静态方法提供语法糖
+
+### 12. CartService — 购物车服务
+
+位置：`lib/services/cart_service.dart`
+
+- **单例模式** + `ValueNotifier<int>`：全局购物车实例，通过 `countListenable` 提供响应式角标
+- **商品管理**：`addItem()` / `removeItem()` / `increaseQuantity()` / `decreaseQuantity()` / `clear()`
+- **同款合并**：重复添加同一商品时自动叠加 quantity 而非新增行
+- **零值清除**：quantity 降至 0 时自动从购物车移除
+- **计算属性**：`totalCount`（总件数）、`totalPrice`（总金额）、`subtotal`（单品小计）
+
+### 13. AMQP-WebSocket 桥接服务 (Node.js)
 
 位置：`assets/iot_amqp/HwIoTAmqpClient.js`
 
@@ -431,7 +484,7 @@ smart_farm_flutter/
 - 使用 `ws` 库启动本地 WebSocket 服务（端口 8083），将 AMQP 消息实时转发给 Flutter App
 - 内建 3 秒心跳保活与自动重连机制
 
-### 12. 数据库设计（Supabase PostgreSQL）
+### 14. 数据库设计（Supabase PostgreSQL）
 
 **sensor_readings（传感器读数表）**
 
@@ -512,11 +565,16 @@ smart_farm_flutter/
 | **OverviewPage**       | Tab 1              | 动态农场名；设备在线/告警统计；24h 环境均值卡片；高德天气卡片（优秀/良好颜色区分）；大棚卡片列表 |
 | **DeviceControlPage**  | Tab 2              | 按设备类型筛选 Tab；设备卡片含属性、运行时长、开关控制（通风/补光走真实 IoTDA，灌溉/水肥为模拟） |
 | **DataMonitorPage**    | Tab 3              | 实时数据卡片（温/湿/土/光）；趋势折线图（24h/7d/30d）；跳转历史查询入口                          |
-| **ProfilePage**        | Tab 4              | 用户信息展示（头像/昵称/简介/手机/邮箱）；农场卡片；设置菜单；编辑资料入口；退出登录             |
+| **ProfilePage**        | Tab 4              | 用户信息展示（头像/昵称/简介/手机/邮箱）；农场卡片；设置菜单含农资商城/购物车等入口；退出登录    |
 | **AiChatPage**         | `/ai-chat`         | AI 对话：流式打字 + Markdown 渲染 + 推理过程展开；硬件控制集成；对话历史管理；侧边栏对话列表     |
 | **SensorHistoryPage**  | `/sensor-history`  | 自定义日历日期选择器；起止日期筛选；记录数量限制；fl_chart 趋势折线图；详细记录列表              |
 | **CropDetailPage**     | 导航进入           | 作物基本信息；生长进度条；环境分析 5 维评分；问题与建议卡片                                      |
 | **AlertCenterPage**    | `/alert`           | 告警统计卡片；未处理/已处理筛选；一键灌溉/通风；查看设备跳转；左滑忽略持久化；随机生成告警       |
+| **AgriMallPage**       | `/agri-mall`       | 农资商城：分类筛选（种子/化肥/农药/工具）；商品网格展示；加入购物车；购物车角标实时更新          |
+| **AgriServicePage**    | `/agri-service`    | 农业服务大厅：AI 病害诊断、土壤检测、气象服务、专家咨询、农机租赁、农技培训                      |
+| **CartPage**           | `/cart`            | 购物车：商品列表 + 增减数量；总金额统计；一键清空；联系客服；跳转结算                            |
+| **DeviceSuppliesPage** | `/device-supplies` | 设备耗材清单：滴灌带、遮阳网、补光灯、传感器等耗材库存与规格管理                                |
+| **FarmNetworkPage**    | `/farm-network`    | 农场网络管理：网络状态概览（上下行速率/延迟/在线设备）；Wi-Fi 网络列表；连接设备实时在线状态     |
 
 ---
 
@@ -627,6 +685,8 @@ flutter build apk --release
 
 - `lib/config/config.dart` 包含真实密钥，已加入 `.gitignore`，请勿提交至版本库
 - AMQP 桥接服务 `HwIoTAmqpClient.js` 需要在能访问华为云 IoTDA 的服务器上运行
+- 主题模式（浅色/暗黑/跟随系统）通过 `SharedPreferences` 持久化，`MaterialApp` 通过 `ValueListenableBuilder<ThemeMode>` 全局响应切换
+- 全页面硬编码颜色已迁移至 `Theme.of(context).colorScheme.*` 语义化 Token，新增组件应继续遵循此模式
 - Supabase Auth 迁移脚本 `supabase/auth_migration.sql` 可重复执行（使用 `if not exists` / `drop policy if exists`）
 - AI 对话功能依赖扣子 (Coze) Bot 配置了硬件控制插件才能下达 IoTDA 设备指令
 - `test/widget_test.dart` 为 Flutter 脚手架默认测试模板，需根据实际 App UI 重写

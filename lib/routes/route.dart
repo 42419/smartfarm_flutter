@@ -30,11 +30,26 @@ Widget getRootWidget({String initialRoute = '/login'}) {
 }
 
 ThemeData _buildTheme(Brightness brightness) {
-  return ThemeData(
+  final base = ThemeData(
     colorSchemeSeed: Colors.greenAccent,
     brightness: brightness,
     useMaterial3: true,
   );
+
+  if (brightness == Brightness.light) {
+    return base.copyWith(
+      scaffoldBackgroundColor: const Color(0xFFFAFAFA),
+      colorScheme: base.colorScheme.copyWith(
+        surfaceTint: Colors.transparent,
+        surface: Colors.white,
+        surfaceContainerLow: const Color(0xFFF8F8F8),
+        surfaceContainerHigh: const Color(0xFFF0F0F0),
+        surfaceContainerHighest: const Color(0xFFE8E8E8),
+      ),
+    );
+  }
+
+  return base;
 }
 
 Map<String, Widget Function(BuildContext)> getRootRoutes() {
