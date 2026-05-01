@@ -38,16 +38,16 @@ class UserInfoSection extends StatelessWidget {
                           Flexible(
                             child: Text(
                               nickname,
-                              style: const TextStyle(
+                              style: TextStyle(
                                 fontSize: 28,
                                 fontWeight: FontWeight.bold,
-                                color: Colors.black87,
+                                color: Theme.of(context).colorScheme.onSurface,
                               ),
                               overflow: TextOverflow.ellipsis,
                             ),
                           ),
-                          const Icon(Icons.chevron_right,
-                              size: 28, color: Colors.black87),
+                          Icon(Icons.chevron_right,
+                              size: 28, color: Theme.of(context).colorScheme.onSurface),
                         ],
                       ),
                       const SizedBox(height: 8),
@@ -55,7 +55,7 @@ class UserInfoSection extends StatelessWidget {
                         hasBio ? bio! : '管理账号、会员权益等',
                         style: TextStyle(
                           fontSize: 13,
-                          color: hasBio ? Colors.black54 : Colors.grey,
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
                         ),
                       ),
                       const SizedBox(height: 12),
@@ -72,7 +72,7 @@ class UserInfoSection extends StatelessWidget {
                             Text('1个农场',
                                 style: TextStyle(
                                     fontSize: 11,
-                                    color: Colors.blueGrey.shade600)),
+                                    color: Theme.of(context).colorScheme.onSurfaceVariant)),
                             Container(
                               margin:
                                   const EdgeInsets.symmetric(horizontal: 6),
@@ -131,18 +131,18 @@ class UserInfoSection extends StatelessWidget {
             Row(
               children: [
                 Icon(Icons.phone_outlined,
-                    size: 14, color: Colors.grey.shade500),
+                    size: 14, color: Theme.of(context).colorScheme.onSurfaceVariant),
                 const SizedBox(width: 6),
                 Text(user?.phone ?? '未设置',
                     style: TextStyle(
-                        fontSize: 12, color: Colors.grey.shade600)),
+                        fontSize: 12, color: Theme.of(context).colorScheme.onSurfaceVariant)),
                 const SizedBox(width: 16),
                 Icon(Icons.email_outlined,
-                    size: 14, color: Colors.grey.shade500),
+                    size: 14, color: Theme.of(context).colorScheme.onSurfaceVariant),
                 const SizedBox(width: 6),
                 Text(user?.email ?? '未设置',
                     style: TextStyle(
-                        fontSize: 12, color: Colors.grey.shade600)),
+                        fontSize: 12, color: Theme.of(context).colorScheme.onSurfaceVariant)),
               ],
             ),
           ],

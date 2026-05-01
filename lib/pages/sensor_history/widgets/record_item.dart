@@ -20,7 +20,7 @@ class RecordItem extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: Theme.of(context).colorScheme.surfaceContainerLow,
           borderRadius: BorderRadius.circular(12),
         ),
         child: Column(
@@ -29,14 +29,14 @@ class RecordItem extends StatelessWidget {
             Row(
               children: [
                 Icon(Icons.access_time,
-                    size: 13, color: Colors.grey.shade400),
+                    size: 13, color: Theme.of(context).colorScheme.onSurfaceVariant),
                 const SizedBox(width: 5),
                 Text(
                   _formatDateTime(record.recordedAt),
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.w600,
-                    color: Colors.black87,
+                    color: Theme.of(context).colorScheme.onSurface,
                   ),
                 ),
                 const Spacer(),

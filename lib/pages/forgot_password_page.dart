@@ -64,13 +64,14 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     return GestureDetector(
       onTap: () => FocusScope.of(context).unfocus(),
       child: Scaffold(
-        backgroundColor: const Color(0xFFFAFAFA),
+        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
         appBar: AppBar(
-          title: const Text('重置密码'),
-          backgroundColor: const Color(0xFFFAFAFA),
+          title: Text('重置密码', style: TextStyle(color: cs.onSurface)),
+          backgroundColor: Theme.of(context).scaffoldBackgroundColor,
         ),
         body: SafeArea(
           child: SingleChildScrollView(
@@ -78,9 +79,10 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
             child: Column(
               children: [
                 const SizedBox(height: 30),
-                const Icon(Icons.lock_reset, size: 56, color: Color(0xFF2B3245)),
+                Icon(Icons.lock_reset, size: 56, color: cs.primary),
                 const SizedBox(height: 16),
-                const Text('输入注册邮箱和新密码即可重置', style: TextStyle(color: Colors.grey, fontSize: 14)),
+                Text('输入注册邮箱和新密码即可重置',
+                    style: TextStyle(color: cs.onSurfaceVariant, fontSize: 14)),
                 const SizedBox(height: 24),
                 _buildField(_emailController, '注册邮箱', Icons.email_outlined, keyboardType: TextInputType.emailAddress),
                 const SizedBox(height: 14),
@@ -94,14 +96,14 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
                   child: OutlinedButton(
                     onPressed: _loading ? null : _handleReset,
                     style: OutlinedButton.styleFrom(
-                      side: const BorderSide(color: Color(0xFF2B3245), width: 1.5),
-                      backgroundColor: Colors.white,
-                      foregroundColor: Colors.black,
+                      side: BorderSide(color: cs.primary, width: 1.5),
+                      backgroundColor: cs.surface,
+                      foregroundColor: cs.onSurface,
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                     ),
                     child: _loading
-                        ? const SizedBox(width: 22, height: 22, child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF2B3245)))
-                        : const Text('重置密码', style: TextStyle(color: Color(0xFF2B3245), fontSize: 18, fontWeight: FontWeight.bold)),
+                        ? SizedBox(width: 22, height: 22, child: CircularProgressIndicator(strokeWidth: 2, color: cs.primary))
+                        : Text('重置密码', style: TextStyle(color: cs.primary, fontSize: 18, fontWeight: FontWeight.bold)),
                   ),
                 ),
               ],
@@ -113,11 +115,12 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
   }
 
   Widget _buildField(TextEditingController controller, String hint, IconData icon, {bool isPassword = false, TextInputType? keyboardType}) {
+    final cs = Theme.of(context).colorScheme;
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: cs.surface,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.grey.shade200),
+        border: Border.all(color: cs.outlineVariant),
       ),
       child: TextField(
         controller: controller,
@@ -125,11 +128,11 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
         keyboardType: keyboardType,
         decoration: InputDecoration(
           hintText: hint,
-          hintStyle: const TextStyle(color: Colors.grey),
-          prefixIcon: Icon(icon, color: Colors.grey),
+          hintStyle: TextStyle(color: cs.onSurfaceVariant),
+          prefixIcon: Icon(icon, color: cs.onSurfaceVariant),
           suffixIcon: isPassword
               ? IconButton(
-                  icon: Icon(_obscureText ? Icons.visibility_off_outlined : Icons.visibility_outlined, color: Colors.grey),
+                  icon: Icon(_obscureText ? Icons.visibility_off_outlined : Icons.visibility_outlined, color: cs.onSurfaceVariant),
                   onPressed: () => setState(() => _obscureText = !_obscureText),
                 )
               : null,

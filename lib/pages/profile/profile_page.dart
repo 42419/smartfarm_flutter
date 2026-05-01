@@ -1,8 +1,13 @@
 import 'package:flutter/material.dart';
 import '../../services/auth_service.dart';
+import '../../services/theme_service.dart';
 import 'widgets/farm_card.dart';
 import 'widgets/settings_card.dart';
 import 'widgets/user_info_section.dart';
+import 'widgets/device_supplies_page.dart';
+import 'widgets/farm_network_page.dart';
+import 'widgets/agri_mall_page.dart';
+import 'widgets/agri_service_page.dart';
 
 class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key});
@@ -13,14 +18,146 @@ class ProfilePage extends StatefulWidget {
 
 class _ProfilePageState extends State<ProfilePage> {
   @override
+  void initState() {
+    super.initState();
+    ThemeService.instance.modeNotifier.addListener(_onThemeChanged);
+  }
+
+  @override
+  void dispose() {
+    ThemeService.instance.modeNotifier.removeListener(_onThemeChanged);
+    super.dispose();
+  }
+
+  void _onThemeChanged() {
+    if (mounted) setState(() {});
+  }
+
+  String get _themeLabel {
+    switch (ThemeService.instance.mode) {
+      case ThemeMode.light:
+        return '浅色模式';
+      case ThemeMode.dark:
+        return '深色模式';
+      case ThemeMode.system:
+        return '跟随系统';
+    }
+  }
+
+  IconData get _themeIcon {
+    switch (ThemeService.instance.mode) {
+      case ThemeMode.light:
+        return Icons.light_mode;
+      case ThemeMode.dark:
+        return Icons.dark_mode;
+      case ThemeMode.system:
+        return Icons.settings_brightness;
+    }
+  }
+
+  void _showThemeSheet() {
+    final currentMode = ThemeService.instance.mode;
+    final cs = Theme.of(context).colorScheme;
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: cs.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) {
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 8),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 36,
+                  height: 5,
+                  margin: const EdgeInsets.only(bottom: 16),
+                  decoration: BoxDecoration(
+                    color: cs.onSurface.withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(3),
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  child: Row(
+                    children: [
+                      Text(
+                        '外观设置',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          color: cs.onSurface,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 12),
+                _themeOption(ctx, cs, Icons.settings_brightness, '跟随系统', ThemeMode.system, currentMode == ThemeMode.system),
+                _themeOption(ctx, cs, Icons.light_mode, '浅色模式', ThemeMode.light, currentMode == ThemeMode.light),
+                _themeOption(ctx, cs, Icons.dark_mode, '深色模式', ThemeMode.dark, currentMode == ThemeMode.dark),
+                const SizedBox(height: 16),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _themeOption(
+    BuildContext sheetCtx,
+    ColorScheme cs,
+    IconData icon,
+    String title,
+    ThemeMode mode,
+    bool selected,
+  ) {
+    return InkWell(
+      onTap: () {
+        ThemeService.instance.setMode(mode);
+        Navigator.of(sheetCtx).pop();
+      },
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+        child: Row(
+          children: [
+            Container(
+              width: 44,
+              height: 44,
+              decoration: BoxDecoration(
+                color: selected ? Colors.green.withValues(alpha: 0.12) : cs.surfaceContainerHighest,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Icon(icon, size: 24, color: selected ? Colors.green : cs.onSurfaceVariant),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Text(title, style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: cs.onSurface)),
+            ),
+            if (selected) const Icon(Icons.check, size: 22, color: Colors.green),
+          ],
+        ),
+      ),
+    );
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Container(
-      decoration: const BoxDecoration(
+      decoration: BoxDecoration(
         gradient: LinearGradient(
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
-          colors: [Color(0xFFE2EAF4), Color(0xFFF5F7FA)],
-          stops: [0.0, 0.25],
+          colors: isDark
+              ? [const Color(0xFF1A2332), const Color(0xFF121212)]
+              : [const Color(0xFFE2EAF4), const Color(0xFFF5F7FA)],
+          stops: const [0.0, 0.25],
         ),
       ),
       child: Scaffold(
@@ -39,56 +176,44 @@ class _ProfilePageState extends State<ProfilePage> {
                 const SizedBox(height: 20),
                 const FarmCard(),
                 const SizedBox(height: 16),
-                const SettingsCard(tiles: [
+                SettingsCard(tiles: [
                   SettingTile(
                     icon: Icons.battery_charging_full,
                     iconColor: Colors.amber,
                     title: '设备耗材',
-                  ),
-                  SettingTile(
-                    icon: Icons.graphic_eq,
-                    iconColor: Colors.blueAccent,
-                    title: '语音控制',
+                    onTap: () => _push(context, const DeviceSuppliesPage()),
                   ),
                   SettingTile(
                     icon: Icons.wifi_tethering,
                     iconColor: Colors.purpleAccent,
                     title: '农场网络',
                     trailingText: '良好',
-                  ),
-                  SettingTile(
-                    icon: Icons.hub_outlined,
-                    iconColor: Colors.green,
-                    title: '中枢与网关',
-                  ),
-                  SettingTile(
-                    icon: Icons.api,
-                    iconColor: Colors.lightBlue,
-                    title: '连接三方平台',
-                  ),
-                  SettingTile(
-                    icon: Icons.settings,
-                    iconColor: Colors.blueGrey,
-                    title: '更多设置',
-                    hasRedDot: true,
+                    onTap: () => _push(context, const FarmNetworkPage()),
                   ),
                 ]),
                 const SizedBox(height: 16),
-                const SettingsCard(tiles: [
+                SettingsCard(tiles: [
+                  SettingTile(
+                    icon: _themeIcon,
+                    iconColor: Colors.blueGrey,
+                    title: '外观',
+                    trailingText: _themeLabel,
+                    onTap: _showThemeSheet,
+                  ),
+                ]),
+                const SizedBox(height: 16),
+                SettingsCard(tiles: [
                   SettingTile(
                     icon: Icons.shopping_bag_outlined,
                     iconColor: Colors.amber,
                     title: '农资商城',
-                  ),
-                  SettingTile(
-                    icon: Icons.home_outlined,
-                    iconColor: Colors.green,
-                    title: '全场智能',
+                    onTap: () => _push(context, const AgriMallPage()),
                   ),
                   SettingTile(
                     icon: Icons.support_agent,
                     iconColor: Colors.orangeAccent,
                     title: '农业服务',
+                    onTap: () => _push(context, const AgriServicePage()),
                   ),
                 ]),
                 const SizedBox(height: 30),
@@ -102,6 +227,10 @@ class _ProfilePageState extends State<ProfilePage> {
     );
   }
 
+  void _push(BuildContext context, Widget page) {
+    Navigator.of(context).push(MaterialPageRoute(builder: (_) => page));
+  }
+
   Widget _buildLogoutButton(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16.0),
@@ -110,7 +239,7 @@ class _ProfilePageState extends State<ProfilePage> {
         height: 50,
         child: ElevatedButton(
           style: ElevatedButton.styleFrom(
-            backgroundColor: Colors.white,
+            backgroundColor: Theme.of(context).colorScheme.surface,
             foregroundColor: Colors.redAccent,
             elevation: 0,
             shape: RoundedRectangleBorder(

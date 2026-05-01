@@ -302,28 +302,27 @@ class _AlertCenterPageState extends State<AlertCenterPage> {
     ];
 
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: Theme.of(context).colorScheme.surface,
       appBar: AppBar(
         automaticallyImplyLeading: false,
         title: Row(
           children: [
             GestureDetector(
               onTap: () => Navigator.of(context).pop(),
-              child: const Icon(Icons.arrow_back_ios,
-                  color: Colors.black87),
+              child: Icon(Icons.arrow_back_ios,
+                  color: Theme.of(context).colorScheme.onSurface),
             ),
             const SizedBox(width: 8),
             const Text(
               '告警中心',
               style: TextStyle(
-                color: Colors.black87,
                 fontWeight: FontWeight.bold,
                 fontSize: 20,
               ),
             ),
           ],
         ),
-        backgroundColor: Colors.white,
+        backgroundColor: Theme.of(context).colorScheme.surface,
         elevation: 0,
         actions: [
           TextButton(
@@ -332,9 +331,9 @@ class _AlertCenterPageState extends State<AlertCenterPage> {
                 _dismissAlert(a.id);
               }
             },
-            child: const Text(
+            child: Text(
               '全部已读',
-              style: TextStyle(fontSize: 14, color: Colors.black54),
+              style: TextStyle(fontSize: 14, color: Theme.of(context).colorScheme.onSurfaceVariant),
             ),
           ),
         ],
@@ -378,11 +377,11 @@ class _AlertCenterPageState extends State<AlertCenterPage> {
             ),
             const SizedBox(height: 20),
             if (_selectedFilterIndex == 0 || _selectedFilterIndex == 1) ...[
-              const Text(
+              Text(
                 '今天',
                 style: TextStyle(
                   fontSize: 14,
-                  color: Colors.black54,
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
                   fontWeight: FontWeight.bold,
                 ),
               ),
@@ -404,23 +403,23 @@ class _AlertCenterPageState extends State<AlertCenterPage> {
                     ),
                   )),
               if (activeAlerts.isEmpty)
-                const Padding(
+                Padding(
                   padding: EdgeInsets.symmetric(vertical: 20),
                   child: Center(
                     child: Text(
                       '暂无未处理告警',
-                      style: TextStyle(color: Colors.grey),
+                      style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant),
                     ),
                   ),
                 ),
               const SizedBox(height: 24),
             ],
             if (_selectedFilterIndex == 0 || _selectedFilterIndex == 2) ...[
-              const Text(
+              Text(
                 '昨天',
                 style: TextStyle(
                   fontSize: 14,
-                  color: Colors.black54,
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
                   fontWeight: FontWeight.bold,
                 ),
               ),
@@ -458,14 +457,14 @@ class _AlertCenterPageState extends State<AlertCenterPage> {
         decoration: BoxDecoration(
           color: selected
               ? const Color(0xFF2B3245)
-              : const Color(0xFFF5F7FA),
+              : Theme.of(context).scaffoldBackgroundColor,
           borderRadius: BorderRadius.circular(20),
         ),
         child: Text(
           label,
           style: TextStyle(
             fontSize: 14,
-            color: selected ? Colors.white : Colors.black54,
+            color: selected ? Colors.white : Theme.of(context).colorScheme.onSurfaceVariant,
             fontWeight: FontWeight.w600,
           ),
         ),

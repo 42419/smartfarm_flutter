@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 class AppColors {
   AppColors._();
 
+  // Use these ONLY where Theme.of(context) is not available.
+  // Prefer Theme.of(context).colorScheme in build methods.
   static const Color primary = Color(0xFF2B3245);
   static const Color background = Color(0xFFF5F7FA);
   static const Color surface = Colors.white;
@@ -29,91 +31,27 @@ class AppColors {
   static const Color divider = Colors.black12;
 }
 
-class AppTextStyles {
-  AppTextStyles._();
+class AppTheme {
+  AppTheme._();
 
-  static const TextStyle pageTitle = TextStyle(
-    fontSize: 20,
-    fontWeight: FontWeight.bold,
-    color: AppColors.textPrimary,
-  );
+  static Color scaffoldBg(BuildContext context) =>
+      Theme.of(context).scaffoldBackgroundColor;
 
-  static const TextStyle sectionTitle = TextStyle(
-    fontSize: 16,
-    fontWeight: FontWeight.bold,
-    color: AppColors.textPrimary,
-  );
+  static Color surface(BuildContext context) =>
+      Theme.of(context).colorScheme.surface;
 
-  static const TextStyle body = TextStyle(
-    fontSize: 14,
-    color: AppColors.textPrimary,
-  );
+  static Color onSurface(BuildContext context) =>
+      Theme.of(context).colorScheme.onSurface;
 
-  static const TextStyle bodySecondary = TextStyle(
-    fontSize: 14,
-    color: AppColors.textSecondary,
-  );
+  static Color onSurfaceVariant(BuildContext context) =>
+      Theme.of(context).colorScheme.onSurfaceVariant;
 
-  static const TextStyle caption = TextStyle(
-    fontSize: 12,
-    color: AppColors.textHint,
-  );
+  static Color surfaceContainerHighest(BuildContext context) =>
+      Theme.of(context).colorScheme.surfaceContainerHighest;
 
-  static const TextStyle metricValue = TextStyle(
-    fontSize: 24,
-    fontWeight: FontWeight.bold,
-    color: AppColors.textPrimary,
-  );
+  static Color outlineVariant(BuildContext context) =>
+      Theme.of(context).colorScheme.outlineVariant;
 
-  static const TextStyle metricLabel = TextStyle(
-    fontSize: 12,
-    color: AppColors.textSecondary,
-  );
-}
-
-class AppDecorations {
-  AppDecorations._();
-
-  static BoxDecoration card({
-    Color color = AppColors.surface,
-    BorderRadius? borderRadius,
-  }) {
-    return BoxDecoration(
-      color: color,
-      borderRadius: borderRadius ?? BorderRadius.circular(16),
-      boxShadow: [
-        BoxShadow(
-          color: Colors.black.withValues(alpha: 0.02),
-          blurRadius: 10,
-          offset: const Offset(0, 4),
-        ),
-      ],
-    );
-  }
-
-  static InputDecoration inputDecoration(String label) {
-    return InputDecoration(
-      labelText: label,
-      filled: true,
-      fillColor: AppColors.surfaceInput,
-      border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
-        borderSide: BorderSide.none,
-      ),
-      contentPadding:
-          const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-    );
-  }
-
-  static BoxDecoration chipDeclared(Color bgColor, Color borderColor) {
-    return BoxDecoration(
-      color: bgColor,
-      border: Border.all(color: borderColor),
-      borderRadius: BorderRadius.circular(20),
-    );
-  }
-
-  static RoundedRectangleBorder dialogShape = RoundedRectangleBorder(
-    borderRadius: BorderRadius.circular(16),
-  );
+  static Color dividerColor(BuildContext context) =>
+      Theme.of(context).dividerColor;
 }

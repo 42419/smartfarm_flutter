@@ -90,12 +90,11 @@ class _DataMonitorPageState extends State<DataMonitorPage>
     final currentIllumination = dm.illumination;
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF5F7FA),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
         title: const Text('数据监测',
-            style: TextStyle(
-                color: Colors.black87, fontWeight: FontWeight.bold)),
-        backgroundColor: Colors.white,
+            style: TextStyle(fontWeight: FontWeight.bold)),
+        backgroundColor: Theme.of(context).colorScheme.surface,
         elevation: 0,
       ),
       body: SingleChildScrollView(
@@ -104,11 +103,11 @@ class _DataMonitorPageState extends State<DataMonitorPage>
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('实时数据',
+            Text('实时数据',
                 style: TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.bold,
-                    color: Colors.black87)),
+                    color: Theme.of(context).colorScheme.onSurface)),
             const SizedBox(height: 12),
             GridView.count(
               crossAxisCount: 2,
@@ -127,7 +126,7 @@ class _DataMonitorPageState extends State<DataMonitorPage>
                   range: '15°C ~ 30°C',
                   status: '正常',
                   statusColor: Colors.green,
-                  valColor: Colors.black87,
+                  valColor: Theme.of(context).colorScheme.onSurface,
                 ),
                 DataCard(
                   icon: Icons.water_drop_outlined,
@@ -138,7 +137,7 @@ class _DataMonitorPageState extends State<DataMonitorPage>
                   range: '40% ~ 80%',
                   status: '正常',
                   statusColor: Colors.green,
-                  valColor: Colors.black87,
+                  valColor: Theme.of(context).colorScheme.onSurface,
                 ),
                 DataCard(
                   icon: Icons.eco_outlined,
@@ -151,7 +150,7 @@ class _DataMonitorPageState extends State<DataMonitorPage>
                       _soilMoistureStatus(currentTemp, currentHumidity),
                   statusColor: _soilMoistureStatusColor(
                       currentTemp, currentHumidity),
-                  valColor: Colors.black87,
+                  valColor: Theme.of(context).colorScheme.onSurface,
                 ),
                 DataCard(
                   icon: Icons.wb_sunny_outlined,
@@ -162,7 +161,7 @@ class _DataMonitorPageState extends State<DataMonitorPage>
                   range: '1000 ~ 8000',
                   status: '正常',
                   statusColor: Colors.green,
-                  valColor: Colors.black87,
+                  valColor: Theme.of(context).colorScheme.onSurface,
                 ),
               ],
             ),
@@ -196,8 +195,8 @@ class _DataMonitorPageState extends State<DataMonitorPage>
                   );
                 },
                 style: OutlinedButton.styleFrom(
-                  foregroundColor: const Color(0xFF2B3245),
-                  side: const BorderSide(color: Color(0xFF2B3245)),
+                  foregroundColor: Theme.of(context).colorScheme.primary,
+                  side: BorderSide(color: Theme.of(context).colorScheme.primary),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12),
                   ),

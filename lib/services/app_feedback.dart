@@ -38,7 +38,7 @@ void showAppToast(String message) {
                 message,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: const TextStyle(fontSize: 14, height: 1.1),
+                style: const TextStyle(fontSize: 14, height: 1.1, color: Colors.white),
               ),
             ),
           ],

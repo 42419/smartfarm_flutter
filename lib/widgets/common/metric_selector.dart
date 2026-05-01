@@ -33,7 +33,7 @@ class MetricSelector extends StatelessWidget {
                 border: Border.all(
                   color: isSelected
                       ? metric.color.withValues(alpha: 0.3)
-                      : Colors.grey.shade300,
+                      : Theme.of(context).colorScheme.outlineVariant,
                 ),
                 borderRadius: BorderRadius.circular(20),
               ),
@@ -53,7 +53,7 @@ class MetricSelector extends StatelessWidget {
                     metric.label,
                     style: TextStyle(
                       fontSize: 12,
-                      color: isSelected ? metric.color : Colors.black54,
+                      color: isSelected ? metric.color : Theme.of(context).colorScheme.onSurfaceVariant,
                       fontWeight: isSelected
                           ? FontWeight.bold
                           : FontWeight.normal,

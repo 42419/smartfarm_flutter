@@ -82,19 +82,21 @@ class _EditProfilePageState extends State<EditProfilePage> {
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+
     return Scaffold(
-      backgroundColor: const Color(0xFFFAFAFA),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios, color: Color(0xFF2B3245)),
+          icon: Icon(Icons.arrow_back_ios, color: cs.onSurface),
           onPressed: () => Navigator.of(context).pop(),
         ),
-        title: const Text(
+        title: Text(
           '编辑资料',
           style: TextStyle(
-            color: Color(0xFF2B3245),
+            color: cs.onSurface,
             fontWeight: FontWeight.bold,
           ),
         ),
@@ -102,18 +104,18 @@ class _EditProfilePageState extends State<EditProfilePage> {
           TextButton(
             onPressed: _loading ? null : _handleSave,
             child: _loading
-                ? const SizedBox(
+                ? SizedBox(
                     width: 20,
                     height: 20,
                     child: CircularProgressIndicator(
                       strokeWidth: 2,
-                      color: Color(0xFF2B3245),
+                      color: cs.primary,
                     ),
                   )
-                : const Text(
+                : Text(
                     '保存',
                     style: TextStyle(
-                      color: Color(0xFF2B3245),
+                      color: cs.primary,
                       fontWeight: FontWeight.bold,
                       fontSize: 16,
                     ),
@@ -194,9 +196,10 @@ class _EditProfilePageState extends State<EditProfilePage> {
   }) {
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: Theme.of(context).colorScheme.surface,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.grey.shade200),
+        border: Border.all(
+            color: Theme.of(context).colorScheme.outlineVariant),
       ),
       child: TextField(
         controller: controller,
@@ -204,10 +207,12 @@ class _EditProfilePageState extends State<EditProfilePage> {
         maxLines: maxLines,
         decoration: InputDecoration(
           hintText: hintText,
-          hintStyle: const TextStyle(color: Colors.grey),
+          hintStyle: TextStyle(
+              color: Theme.of(context).colorScheme.onSurfaceVariant),
           prefixIcon: Padding(
             padding: const EdgeInsets.only(bottom: 0),
-            child: Icon(icon, color: Colors.grey),
+            child: Icon(icon,
+                color: Theme.of(context).colorScheme.onSurfaceVariant),
           ),
           border: InputBorder.none,
           contentPadding: const EdgeInsets.symmetric(

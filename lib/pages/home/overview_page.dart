@@ -208,9 +208,9 @@ class _OverviewPageState extends State<OverviewPage> {
   Widget build(BuildContext context) {
     final w = WeatherService.instance;
     return Scaffold(
-      backgroundColor: const Color(0xFFF5F7FA),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
-        backgroundColor: Colors.white,
+        backgroundColor: Theme.of(context).colorScheme.surface,
         elevation: 0,
         title: Row(
           mainAxisSize: MainAxisSize.min,
@@ -220,13 +220,11 @@ class _OverviewPageState extends State<OverviewPage> {
                   ? AuthService.instance.currentUser!.farm
                   : '东郊农场',
               style: const TextStyle(
-                color: Colors.black87,
                 fontSize: 18,
                 fontWeight: FontWeight.bold,
               ),
             ),
             const SizedBox(width: 4),
-            const Icon(Icons.keyboard_arrow_down, color: Colors.black54),
           ],
         ),
         actions: [
@@ -234,8 +232,8 @@ class _OverviewPageState extends State<OverviewPage> {
             icon: Stack(
               clipBehavior: Clip.none,
               children: [
-                const Icon(Icons.notifications_none,
-                    color: Colors.black87),
+                Icon(Icons.notifications_none,
+                    color: Theme.of(context).colorScheme.onSurface),
                 if (_hasUnhandledAlerts)
                   Positioned(
                     right: 2,
@@ -302,8 +300,9 @@ class _OverviewPageState extends State<OverviewPage> {
                     style: TextStyle(
                         fontSize: 16, fontWeight: FontWeight.bold)),
                 Text(_formatTimeAgo(),
-                    style:
-                        const TextStyle(fontSize: 12, color: Colors.grey)),
+                    style: TextStyle(
+                        fontSize: 12,
+                        color: Theme.of(context).colorScheme.onSurfaceVariant)),
               ],
             ),
             const SizedBox(height: 12),
@@ -311,7 +310,7 @@ class _OverviewPageState extends State<OverviewPage> {
               padding:
                   const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
               decoration: BoxDecoration(
-                color: Colors.white,
+                color: Theme.of(context).colorScheme.surfaceContainerLow,
                 borderRadius: BorderRadius.circular(16),
               ),
               child: Column(
@@ -322,7 +321,7 @@ class _OverviewPageState extends State<OverviewPage> {
                     illumination: _illuminationText,
                     soilMoisture: _soilMoistureText,
                   ),
-                  const Divider(height: 20, color: Colors.black12),
+                  Divider(height: 20, color: Theme.of(context).colorScheme.outlineVariant),
                   WeatherCard(
                     city: w.city,
                     weatherText: w.weatherText,
@@ -372,7 +371,7 @@ class _OverviewPageState extends State<OverviewPage> {
                           itemCount: _crops.length,
                           itemBuilder: (context, index) {
                             final crop = _crops[index];
-                            final info = getHealthInfo(crop.health);
+                            final info = getHealthInfo(context, crop.health);
                             return Padding(
                               padding: EdgeInsets.only(
                                 bottom: index < _crops.length - 1 ? 10 : 0,
@@ -422,7 +421,7 @@ class _OverviewPageState extends State<OverviewPage> {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: Theme.of(context).colorScheme.surfaceContainerLow,
         borderRadius: BorderRadius.circular(16),
       ),
       child: Column(
@@ -432,8 +431,9 @@ class _OverviewPageState extends State<OverviewPage> {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(title,
-                  style:
-                      const TextStyle(color: Colors.grey, fontSize: 13)),
+                  style: TextStyle(
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      fontSize: 13)),
               Icon(icon, color: iconColor, size: 20),
             ],
           ),
@@ -443,7 +443,7 @@ class _OverviewPageState extends State<OverviewPage> {
             style: TextStyle(
               fontSize: 28,
               fontWeight: FontWeight.bold,
-              color: isAlert ? Colors.redAccent : Colors.black87,
+              color: isAlert ? Colors.redAccent : Theme.of(context).colorScheme.onSurface,
             ),
           ),
           const SizedBox(height: 4),

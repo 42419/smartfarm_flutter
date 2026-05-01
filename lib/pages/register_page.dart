@@ -88,11 +88,12 @@ class _RegisterPageState extends State<RegisterPage> {
   }
 
   Widget _buildField(TextEditingController controller, String hint, IconData icon, {bool isPassword = false, TextInputType? keyboardType}) {
+    final cs = Theme.of(context).colorScheme;
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: cs.surface,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.grey.shade200),
+        border: Border.all(color: cs.outlineVariant),
       ),
       child: TextField(
         controller: controller,
@@ -100,13 +101,13 @@ class _RegisterPageState extends State<RegisterPage> {
         keyboardType: keyboardType,
         decoration: InputDecoration(
           hintText: hint,
-          hintStyle: const TextStyle(color: Colors.grey),
-          prefixIcon: Icon(icon, color: Colors.grey),
+          hintStyle: TextStyle(color: cs.onSurfaceVariant),
+          prefixIcon: Icon(icon, color: cs.onSurfaceVariant),
           suffixIcon: isPassword
               ? IconButton(
                   icon: Icon(
                     _obscureText ? Icons.visibility_off_outlined : Icons.visibility_outlined,
-                    color: Colors.grey,
+                    color: cs.onSurfaceVariant,
                   ),
                   onPressed: () => setState(() => _obscureText = !_obscureText),
                 )
@@ -120,13 +121,14 @@ class _RegisterPageState extends State<RegisterPage> {
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     return GestureDetector(
       onTap: () => FocusScope.of(context).unfocus(),
       child: Scaffold(
-        backgroundColor: const Color(0xFFFAFAFA),
+        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
         appBar: AppBar(
-          title: const Text('注册账号'),
-          backgroundColor: const Color(0xFFFAFAFA),
+          title: Text('注册账号', style: TextStyle(color: cs.onSurface)),
+          backgroundColor: Theme.of(context).scaffoldBackgroundColor,
         ),
         body: SafeArea(
           child: SingleChildScrollView(
@@ -153,20 +155,21 @@ class _RegisterPageState extends State<RegisterPage> {
                   child: OutlinedButton(
                     onPressed: _loading ? null : _handleRegister,
                     style: OutlinedButton.styleFrom(
-                      side: const BorderSide(color: Color(0xFF2B3245), width: 1.5),
-                      backgroundColor: Colors.white,
-                      foregroundColor: Colors.black,
+                      side: BorderSide(color: cs.primary, width: 1.5),
+                      backgroundColor: cs.surface,
+                      foregroundColor: cs.onSurface,
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                     ),
                     child: _loading
-                        ? const SizedBox(width: 22, height: 22, child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF2B3245)))
-                        : const Text("注 册", style: TextStyle(color: Color(0xFF2B3245), fontSize: 18, fontWeight: FontWeight.bold)),
+                        ? SizedBox(width: 22, height: 22, child: CircularProgressIndicator(strokeWidth: 2, color: cs.primary))
+                        : Text("注 册", style: TextStyle(color: cs.primary, fontSize: 18, fontWeight: FontWeight.bold)),
                   ),
                 ),
                 const SizedBox(height: 20),
                 GestureDetector(
                   onTap: () => Navigator.pop(context),
-                  child: const Text('已有账号？返回登录', style: TextStyle(color: Colors.grey, fontSize: 14)),
+                  child: Text('已有账号？返回登录',
+                      style: TextStyle(color: cs.onSurfaceVariant, fontSize: 14)),
                 ),
               ],
             ),

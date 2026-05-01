@@ -50,18 +50,17 @@ class _DeviceControlPageState extends State<DeviceControlPage>
         dm.illumination == '--' ? '-- lux' : '${dm.illumination} lux';
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF5F7FA),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
         title: const Text('设备控制',
-            style: TextStyle(
-                color: Colors.black87, fontWeight: FontWeight.bold)),
-        backgroundColor: Colors.white,
+            style: TextStyle(fontWeight: FontWeight.bold)),
+        backgroundColor: Theme.of(context).colorScheme.surface,
         elevation: 0,
       ),
       body: Column(
         children: [
           Container(
-            color: Colors.white,
+            color: Theme.of(context).colorScheme.surface,
             padding:
                 const EdgeInsets.only(left: 16, right: 16, bottom: 12),
             child: SingleChildScrollView(
@@ -78,10 +77,13 @@ class _DeviceControlPageState extends State<DeviceControlPage>
                         setState(() => _selectedTabIndex = index);
                       },
                       selectedColor: Colors.blueAccent,
-                      backgroundColor: const Color(0xFFF0F2F5),
+                      backgroundColor: Theme.of(context).colorScheme.surfaceContainerHighest,
                       labelStyle: TextStyle(
-                        color:
-                            isSelected ? Colors.white : Colors.black54,
+                        color: isSelected
+                            ? Colors.white
+                            : Theme.of(context)
+                                .colorScheme
+                                .onSurfaceVariant,
                         fontWeight: isSelected
                             ? FontWeight.bold
                             : FontWeight.normal,
@@ -251,11 +253,14 @@ class _DeviceControlPageState extends State<DeviceControlPage>
                   const SizedBox(height: 20),
                 ],
                 if (_selectedTabIndex == 4) ...[
-                  const Padding(
+                  Padding(
                     padding: EdgeInsets.only(top: 50),
                     child: Center(
                       child: Text('暂无相关设备',
-                          style: TextStyle(color: Colors.grey)),
+                          style: TextStyle(
+                              color: Theme.of(context)
+                                  .colorScheme
+                                  .onSurfaceVariant)),
                     ),
                   ),
                 ],

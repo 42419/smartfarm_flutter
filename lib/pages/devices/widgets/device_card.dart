@@ -26,6 +26,7 @@ class DeviceCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     final statusText = isOn ? statusTextOn : statusTextOff;
     final statusColor = isOn
         ? (statusTextOn == '部分开启' ? Colors.orangeAccent : Colors.green)
@@ -34,13 +35,13 @@ class DeviceCard extends StatelessWidget {
         ? (statusTextOn == '部分开启'
             ? const Color(0xFFFFF8E1)
             : const Color(0xFFE8F5E9))
-        : const Color(0xFFF0F2F5);
+        : Theme.of(context).colorScheme.surfaceContainerHighest;
 
     return Container(
       padding: const EdgeInsets.all(16),
       margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: Theme.of(context).colorScheme.surfaceContainerLow,
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
@@ -61,14 +62,17 @@ class DeviceCard extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(title,
-                      style: const TextStyle(
+                      style: TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.bold,
-                          color: Colors.black87)),
+                          color: Theme.of(context).colorScheme.onSurface)),
                   const SizedBox(height: 4),
                   Text('$location · 已运行 $runtimeDay天',
-                      style: const TextStyle(
-                          fontSize: 12, color: Colors.grey)),
+                      style: TextStyle(
+                          fontSize: 12,
+                          color: Theme.of(context)
+                              .colorScheme
+                              .onSurfaceVariant)),
                 ],
               ),
               Container(
@@ -99,14 +103,19 @@ class DeviceCard extends StatelessWidget {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(attr['label']!,
-                              style: const TextStyle(
-                                  fontSize: 12, color: Colors.grey)),
+                              style: TextStyle(
+                                  fontSize: 12,
+                                  color: Theme.of(context)
+                                      .colorScheme
+                                      .onSurfaceVariant)),
                           const SizedBox(height: 4),
                           Text(attr['value']!,
-                              style: const TextStyle(
+                              style: TextStyle(
                                   fontSize: 14,
                                   fontWeight: FontWeight.bold,
-                                  color: Colors.black87)),
+                                  color: Theme.of(context)
+                                      .colorScheme
+                                      .onSurface)),
                         ],
                       ),
                     );
@@ -120,10 +129,10 @@ class DeviceCard extends StatelessWidget {
                     padding: const EdgeInsets.all(6),
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
-                      border: Border.all(color: Colors.grey.shade300),
+                      border: Border.all(color: cs.outlineVariant),
                     ),
                     child:
-                        Icon(icon, size: 16, color: Colors.grey.shade600),
+                        Icon(icon, size: 16, color: cs.onSurfaceVariant),
                   );
                 }).toList(),
               ),
@@ -133,7 +142,7 @@ class DeviceCard extends StatelessWidget {
                 activeThumbColor: Colors.white,
                 activeTrackColor: Colors.green,
                 inactiveThumbColor: Colors.white,
-                inactiveTrackColor: Colors.grey.shade300,
+                inactiveTrackColor: cs.surfaceContainerHighest,
               ),
             ],
           ),
@@ -205,10 +214,10 @@ class SectionHeader extends StatelessWidget {
           Icon(icon, color: color, size: 20),
           const SizedBox(width: 8),
           Text(title,
-              style: const TextStyle(
+              style: TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.bold,
-                  color: Colors.black87)),
+                  color: Theme.of(context).colorScheme.onSurface)),
         ],
       ),
     );

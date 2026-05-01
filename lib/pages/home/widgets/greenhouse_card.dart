@@ -23,7 +23,9 @@ class LegendItem extends StatelessWidget {
         ),
         const SizedBox(width: 4),
         Text(label,
-            style: const TextStyle(fontSize: 12, color: Colors.grey)),
+            style: TextStyle(
+                fontSize: 12,
+                color: Theme.of(context).colorScheme.onSurfaceVariant)),
       ],
     );
   }
@@ -80,7 +82,7 @@ class GreenhouseCard extends StatelessWidget {
                 ),
                 if (crop != null) ...[
                   const SizedBox(height: 6),
-                  _buildCropInfoRow(crop!),
+                  _buildCropInfoRow(context, crop!),
                 ],
               ],
             ),
@@ -105,11 +107,13 @@ class GreenhouseCard extends StatelessWidget {
     );
   }
 
-  Widget _buildCropInfoRow(Crop crop) {
+  Widget _buildCropInfoRow(BuildContext context, Crop crop) {
     if (crop.summary != null && crop.summary!.isNotEmpty) {
       return Text(
         crop.summary!,
-        style: const TextStyle(fontSize: 11, color: Colors.black54),
+        style: TextStyle(
+            fontSize: 11,
+            color: Theme.of(context).colorScheme.onSurfaceVariant),
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
       );
@@ -132,7 +136,9 @@ class GreenhouseCard extends StatelessWidget {
     if (items.isEmpty) return const SizedBox();
     return Text(
       items.join('  '),
-      style: const TextStyle(fontSize: 11, color: Colors.black54),
+      style: TextStyle(
+          fontSize: 11,
+          color: Theme.of(context).colorScheme.onSurfaceVariant),
       maxLines: 1,
       overflow: TextOverflow.ellipsis,
     );
@@ -145,25 +151,38 @@ class HealthInfo {
   const HealthInfo(this.bgColor, this.mainColor);
 }
 
-HealthInfo getHealthInfo(String? health) {
+HealthInfo getHealthInfo(BuildContext context, String? health) {
   final h = (health ?? '').trim();
+  final isDark = Theme.of(context).brightness == Brightness.dark;
   if (h.contains('优秀')) {
-    return const HealthInfo(Color(0xFFE8F5FF), Color(0xFF1565C0));
+    return HealthInfo(
+      isDark ? const Color(0xFF1565C0).withValues(alpha: 0.16) : const Color(0xFFE8F5FF),
+      const Color(0xFF1565C0),
+    );
   }
   if (h.contains('异常') ||
       h.contains('偏高') ||
       h.contains('偏低') ||
       h.contains('危险') ||
       h.contains('差')) {
-    return const HealthInfo(Color(0xFFFFF4F4), Colors.redAccent);
+    return HealthInfo(
+      isDark ? Colors.redAccent.withValues(alpha: 0.16) : const Color(0xFFFFF4F4),
+      Colors.redAccent,
+    );
   }
   if (h.contains('一般') ||
       h.contains('注意') ||
       h.contains('接近') ||
       h.contains('警告')) {
-    return const HealthInfo(Color(0xFFFFFDE7), Colors.orangeAccent);
+    return HealthInfo(
+      isDark ? Colors.orangeAccent.withValues(alpha: 0.16) : const Color(0xFFFFFDE7),
+      Colors.orangeAccent,
+    );
   }
-  return const HealthInfo(Color(0xFFF4FFF6), Colors.green);
+  return HealthInfo(
+    isDark ? Colors.green.withValues(alpha: 0.16) : const Color(0xFFF4FFF6),
+    Colors.green,
+  );
 }
 
 List<IconData> relevantIcons(Crop crop) {

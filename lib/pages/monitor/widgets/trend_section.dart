@@ -32,7 +32,7 @@ class TrendSection extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: Theme.of(context).colorScheme.surface,
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
@@ -50,15 +50,15 @@ class TrendSection extends StatelessWidget {
             children: [
               Text(
                 '${metrics[selectedMetricIndex].label}趋势',
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.bold,
-                  color: Colors.black87,
+                  color: Theme.of(context).colorScheme.onSurface,
                 ),
               ),
               Container(
                 decoration: BoxDecoration(
-                  color: const Color(0xFFF0F2F5),
+                  color: Theme.of(context).colorScheme.surfaceContainerHighest,
                   borderRadius: BorderRadius.circular(20),
                 ),
                 padding: const EdgeInsets.all(2),
@@ -72,7 +72,7 @@ class TrendSection extends StatelessWidget {
                             horizontal: 12, vertical: 6),
                         decoration: isSelected
                             ? BoxDecoration(
-                                color: Colors.white,
+color: Theme.of(context).colorScheme.surfaceContainerLow,
                                 borderRadius:
                                     BorderRadius.circular(16),
                                 boxShadow: [
@@ -88,8 +88,11 @@ class TrendSection extends StatelessWidget {
                           _timeLabels[index],
                           style: TextStyle(
                             fontSize: 12,
-                            color:
-                                isSelected ? Colors.blueAccent : Colors.grey,
+                            color: isSelected
+                                ? Colors.blueAccent
+                                : Theme.of(context)
+                                    .colorScheme
+                                    .onSurfaceVariant,
                             fontWeight: isSelected
                                 ? FontWeight.bold
                                 : FontWeight.normal,

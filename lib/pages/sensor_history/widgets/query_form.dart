@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import '../../../theme/app_theme.dart';
 
 class QueryForm extends StatelessWidget {
   const QueryForm({
@@ -29,11 +28,12 @@ class QueryForm extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     return Container(
       margin: const EdgeInsets.all(16),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: AppColors.surface,
+        color: cs.surfaceContainerLow,
         borderRadius: BorderRadius.circular(16),
       ),
       child: Column(
@@ -41,7 +41,7 @@ class QueryForm extends StatelessWidget {
           Row(
             children: [
               Expanded(
-                child: _buildDateButton(
+                child: _buildDateButton(context,
                   label: '开始日期',
                   value: _formatDate(startDate),
                   onTap: onPickStartDate,
@@ -49,7 +49,7 @@ class QueryForm extends StatelessWidget {
               ),
               const SizedBox(width: 12),
               Expanded(
-                child: _buildDateButton(
+                child: _buildDateButton(context,
                   label: '结束日期',
                   value: _formatDate(endDate),
                   onTap: onPickEndDate,
@@ -63,7 +63,7 @@ class QueryForm extends StatelessWidget {
               Expanded(
                 child: DropdownButtonFormField<int>(
                   initialValue: limit,
-                  decoration: AppDecorations.inputDecoration('条数限制'),
+                  decoration: _inputDecoration(cs, '条数限制'),
                   items: const [50, 100, 200, 500]
                       .map(
                         (value) => DropdownMenuItem(
@@ -79,7 +79,7 @@ class QueryForm extends StatelessWidget {
               Expanded(
                 child: DropdownButtonFormField<bool>(
                   initialValue: descending,
-                  decoration: AppDecorations.inputDecoration('排序'),
+                  decoration: _inputDecoration(cs, '排序'),
                   items: const [
                     DropdownMenuItem(
                       value: true,
@@ -102,8 +102,8 @@ class QueryForm extends StatelessWidget {
             child: ElevatedButton(
               onPressed: loading ? null : onQuery,
               style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.primary,
-                foregroundColor: Colors.white,
+                backgroundColor: cs.primary,
+                foregroundColor: cs.onPrimary,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12),
                 ),
@@ -116,21 +116,36 @@ class QueryForm extends StatelessWidget {
     );
   }
 
-  Widget _buildDateButton({
+  static InputDecoration _inputDecoration(ColorScheme cs, String label) {
+    return InputDecoration(
+      labelText: label,
+      filled: true,
+      fillColor: cs.surfaceContainerHighest,
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: BorderSide.none,
+      ),
+      contentPadding:
+          const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+    );
+  }
+
+  Widget _buildDateButton(BuildContext context, {
     required String label,
     required String value,
     required VoidCallback onTap,
   }) {
+    final cs = Theme.of(context).colorScheme;
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(12),
       child: InputDecorator(
-        decoration: AppDecorations.inputDecoration(label),
+        decoration: _inputDecoration(cs, label),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Text(value),
-            const Icon(Icons.calendar_month_outlined, size: 18),
+            Text(value, style: TextStyle(color: cs.onSurface)),
+            Icon(Icons.calendar_month_outlined, size: 18, color: cs.onSurfaceVariant),
           ],
         ),
       ),

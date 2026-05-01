@@ -3,6 +3,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'services/auth_service.dart';
 import 'services/supabase_service.dart';
+import 'services/theme_service.dart';
 import 'routes/route.dart';
 
 Future<void> main(List<String> args) async {
@@ -10,6 +11,7 @@ Future<void> main(List<String> args) async {
 
   await SupabaseService.initialize();
   await AuthService.instance.init();
+  await ThemeService.instance.init();
 
   final hasSession = Supabase.instance.client.auth.currentSession != null;
 

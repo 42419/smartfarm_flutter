@@ -29,7 +29,7 @@ class DataCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: Theme.of(context).colorScheme.surfaceContainerLow,
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
@@ -100,12 +100,16 @@ class DataCard extends StatelessWidget {
               ),
               const SizedBox(height: 2),
               Text(label,
-                  style:
-                      const TextStyle(fontSize: 12, color: Colors.black54)),
+                  style: TextStyle(
+                      fontSize: 12,
+                      color:
+                          Theme.of(context).colorScheme.onSurfaceVariant)),
             ],
           ),
           Text('阈值范围: $range',
-              style: const TextStyle(fontSize: 10, color: Colors.grey)),
+              style: TextStyle(
+                  fontSize: 10,
+                  color: Theme.of(context).colorScheme.onSurfaceVariant)),
         ],
       ),
     );

@@ -7,22 +7,32 @@ class DetailHealthInfo {
   const DetailHealthInfo(this.bgColor, this.mainColor);
 }
 
-DetailHealthInfo getDetailHealthInfo(String? health) {
+DetailHealthInfo getDetailHealthInfo(BuildContext context, String? health) {
   final h = (health ?? '').trim();
+  final isDark = Theme.of(context).brightness == Brightness.dark;
   if (h.contains('异常') ||
       h.contains('偏高') ||
       h.contains('偏低') ||
       h.contains('危险') ||
       h.contains('差')) {
-    return const DetailHealthInfo(Color(0xFFFFF4F4), Colors.redAccent);
+    return DetailHealthInfo(
+      isDark ? Colors.redAccent.withValues(alpha: 0.16) : const Color(0xFFFFF4F4),
+      Colors.redAccent,
+    );
   }
   if (h.contains('一般') ||
       h.contains('注意') ||
       h.contains('接近') ||
       h.contains('警告')) {
-    return const DetailHealthInfo(Color(0xFFFFFDE7), Colors.orangeAccent);
+    return DetailHealthInfo(
+      isDark ? Colors.orangeAccent.withValues(alpha: 0.16) : const Color(0xFFFFFDE7),
+      Colors.orangeAccent,
+    );
   }
-  return const DetailHealthInfo(Color(0xFFF4FFF6), Colors.green);
+  return DetailHealthInfo(
+    isDark ? Colors.green.withValues(alpha: 0.16) : const Color(0xFFF4FFF6),
+    Colors.green,
+  );
 }
 
 class CropHeader extends StatelessWidget {
@@ -102,17 +112,17 @@ class SectionCard extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: Theme.of(context).colorScheme.surfaceContainerLow,
         borderRadius: BorderRadius.circular(14),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(title,
-              style: const TextStyle(
+              style: TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.bold,
-                  color: Colors.black87)),
+                  color: Theme.of(context).colorScheme.onSurface)),
           const SizedBox(height: 12),
           child,
         ],
@@ -140,10 +150,10 @@ class InfoRow extends StatelessWidget {
         children: [
           Text(label,
               style:
-                  const TextStyle(fontSize: 14, color: Colors.grey)),
+                  TextStyle(fontSize: 14, color: Theme.of(context).colorScheme.onSurfaceVariant)),
           Text(value,
-              style: const TextStyle(
-                  fontSize: 14, color: Colors.black87)),
+              style: TextStyle(
+                  fontSize: 14, color: Theme.of(context).colorScheme.onSurface)),
         ],
       ),
     );
@@ -186,8 +196,8 @@ class GrowthSection extends StatelessWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text('当前进度',
-                  style: TextStyle(fontSize: 14, color: Colors.black87)),
+              Text('当前进度',
+                  style: TextStyle(fontSize: 14, color: Theme.of(context).colorScheme.onSurface)),
               Text(
                 '${(progress * 100).toStringAsFixed(0)}%',
                 style: TextStyle(
@@ -202,7 +212,7 @@ class GrowthSection extends StatelessWidget {
             borderRadius: BorderRadius.circular(4),
             child: LinearProgressIndicator(
               value: progress.clamp(0.0, 1.0),
-              backgroundColor: Colors.grey.shade200,
+              backgroundColor: Theme.of(context).colorScheme.surfaceContainerHighest,
               valueColor: AlwaysStoppedAnimation<Color>(info.mainColor),
               minHeight: 8,
             ),
@@ -226,7 +236,7 @@ class GrowthSection extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label, style: const TextStyle(fontSize: 11, color: Colors.grey)),
+        Text(label, style: const TextStyle(fontSize: 11, color: Colors.black54)),
         const SizedBox(height: 2),
         Text(value,
             style: const TextStyle(
@@ -286,8 +296,8 @@ class EnvironmentSection extends StatelessWidget {
                 const SizedBox(width: 12),
                 Expanded(
                   child: Text(item.label,
-                      style: const TextStyle(
-                          fontSize: 14, color: Colors.black87)),
+                      style: TextStyle(
+                          fontSize: 14, color: Theme.of(context).colorScheme.onSurface)),
                 ),
                 Text('${item.score}分',
                     style: TextStyle(
@@ -337,8 +347,8 @@ class TasksSection extends StatelessWidget {
                 Icon(t.icon, color: Colors.blueAccent, size: 28),
                 const SizedBox(height: 6),
                 Text(t.label,
-                    style: const TextStyle(
-                        fontSize: 12, color: Colors.grey)),
+                    style: TextStyle(
+                        fontSize: 12, color: Theme.of(context).colorScheme.onSurfaceVariant)),
                 const SizedBox(height: 2),
                 Text(t.time,
                     style: const TextStyle(
@@ -396,11 +406,11 @@ class RecommendationsSection extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text('问题与建议',
+        Text('问题与建议',
             style: TextStyle(
                 fontSize: 16,
                 fontWeight: FontWeight.bold,
-                color: Colors.black87)),
+                color: Theme.of(context).colorScheme.onSurface)),
         const SizedBox(height: 12),
         ...items.map((item) {
           return Container(
@@ -408,7 +418,7 @@ class RecommendationsSection extends StatelessWidget {
             margin: const EdgeInsets.only(bottom: 10),
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: Theme.of(context).colorScheme.surfaceContainerLow,
               borderRadius: BorderRadius.circular(14),
               border: Border(left: BorderSide(color: item.color, width: 3)),
             ),
@@ -431,9 +441,9 @@ class RecommendationsSection extends StatelessWidget {
                 if (item.content.isNotEmpty) ...[
                   const SizedBox(height: 8),
                   Text('建议: ${item.content}',
-                      style: const TextStyle(
+                      style: TextStyle(
                           fontSize: 13,
-                          color: Colors.black54,
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
                           height: 1.5)),
                 ],
               ],

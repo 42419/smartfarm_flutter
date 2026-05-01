@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import '../../theme/app_theme.dart';
 
 class StatCard extends StatelessWidget {
   const StatCard({
@@ -25,13 +24,14 @@ class StatCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     final effectiveSubColor = subTextColor ?? color;
     final effectiveIconColor = iconColor ?? color;
 
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: AppColors.surface,
+        color: cs.surfaceContainerLow,
         borderRadius: BorderRadius.circular(16),
       ),
       child: Column(
@@ -41,24 +41,27 @@ class StatCard extends StatelessWidget {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text(label, style: AppTextStyles.caption),
+                Text(label,
+                    style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant)),
                 Icon(icon, color: effectiveIconColor, size: 20),
               ],
             )
           else
-            Text(label, style: AppTextStyles.caption),
+            Text(label,
+                style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant)),
           const SizedBox(height: 10),
           Text(
             value,
             style: TextStyle(
               fontSize: 28,
               fontWeight: FontWeight.bold,
-              color: isAlert ? AppColors.error : AppColors.textPrimary,
+              color: isAlert ? Colors.redAccent : cs.onSurface,
             ),
           ),
           if (subText != null) ...[
             const SizedBox(height: 4),
-            Text(subText!, style: TextStyle(color: effectiveSubColor, fontSize: 12)),
+            Text(subText!,
+                style: TextStyle(color: effectiveSubColor, fontSize: 12)),
           ],
         ],
       ),
@@ -80,6 +83,7 @@ class CompactStatCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     return Expanded(
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 12),
@@ -98,7 +102,8 @@ class CompactStatCard extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 4),
-            Text(label, style: AppTextStyles.caption),
+            Text(label,
+                style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant)),
           ],
         ),
       ),

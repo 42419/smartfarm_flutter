@@ -52,10 +52,11 @@ class _LoginPageState extends State<LoginPage> {
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     return GestureDetector(
       onTap: () => FocusScope.of(context).unfocus(),
       child: Scaffold(
-        backgroundColor: const Color(0xFFFAFAFA),
+        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
         body: SafeArea(
           child: SingleChildScrollView(
             padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 24),
@@ -64,40 +65,40 @@ class _LoginPageState extends State<LoginPage> {
                 const SizedBox(height: 80),
                 Image.asset("assets/img/logo.png", width: 120),
                 const SizedBox(height: 20),
-                const Text(
+                Text(
                   "禾寻",
                   style: TextStyle(
                     fontWeight: FontWeight.w900,
                     fontSize: 28,
-                    color: Color(0xFF2B3245),
+                    color: cs.primary,
                   ),
                 ),
                 const SizedBox(height: 8),
-                const Text(
+                Text(
                   "寻味自然，追寻良田",
                   style: TextStyle(
                     fontWeight: FontWeight.normal,
                     fontSize: 16,
-                    color: Colors.black54,
+                    color: cs.onSurfaceVariant,
                   ),
                 ),
                 const SizedBox(height: 40),
 
                 Container(
                   decoration: BoxDecoration(
-                    color: Colors.white,
+                    color: cs.surface,
                     borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: Colors.grey.shade200),
+                    border: Border.all(color: cs.outlineVariant),
                   ),
                   child: TextField(
                     controller: _accountController,
                     keyboardType: TextInputType.text,
-                    decoration: const InputDecoration(
+                    decoration: InputDecoration(
                       hintText: "用户名或邮箱",
-                      hintStyle: TextStyle(color: Colors.grey),
-                      prefixIcon: Icon(Icons.person_outline, color: Colors.grey),
+                      hintStyle: TextStyle(color: cs.onSurfaceVariant),
+                      prefixIcon: Icon(Icons.person_outline, color: cs.onSurfaceVariant),
                       border: InputBorder.none,
-                      contentPadding: EdgeInsets.symmetric(vertical: 16),
+                      contentPadding: const EdgeInsets.symmetric(vertical: 16),
                     ),
                   ),
                 ),
@@ -105,23 +106,23 @@ class _LoginPageState extends State<LoginPage> {
 
                 Container(
                   decoration: BoxDecoration(
-                    color: Colors.white,
+                    color: cs.surface,
                     borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: Colors.grey.shade200),
+                    border: Border.all(color: cs.outlineVariant),
                   ),
                   child: TextField(
                     controller: _passwordController,
                     obscureText: _obscureText,
                     decoration: InputDecoration(
                       hintText: "请输入密码",
-                      hintStyle: const TextStyle(color: Colors.grey),
-                      prefixIcon: const Icon(Icons.lock_outline_rounded, color: Colors.grey),
+                      hintStyle: TextStyle(color: cs.onSurfaceVariant),
+                      prefixIcon: Icon(Icons.lock_outline_rounded, color: cs.onSurfaceVariant),
                       suffixIcon: IconButton(
                         icon: Icon(
                           _obscureText
                               ? Icons.visibility_off_outlined
                               : Icons.visibility_outlined,
-                          color: Colors.grey,
+                          color: cs.onSurfaceVariant,
                         ),
                         onPressed: () => setState(() => _obscureText = !_obscureText),
                       ),
@@ -138,24 +139,24 @@ class _LoginPageState extends State<LoginPage> {
                   child: OutlinedButton(
                     onPressed: _loading ? null : _handleLogin,
                     style: OutlinedButton.styleFrom(
-                      side: const BorderSide(color: Color(0xFF2B3245), width: 1.5),
-                      backgroundColor: Colors.white,
-                      foregroundColor: Colors.black,
+                      side: BorderSide(color: cs.primary, width: 1.5),
+                      backgroundColor: cs.surface,
+                      foregroundColor: cs.onSurface,
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                     ),
                     child: _loading
-                        ? const SizedBox(
+                        ? SizedBox(
                             width: 22,
                             height: 22,
                             child: CircularProgressIndicator(
                               strokeWidth: 2,
-                              color: Color(0xFF2B3245),
+                              color: cs.primary,
                             ),
                           )
-                        : const Text(
+                        : Text(
                             "登 录",
                             style: TextStyle(
-                              color: Color(0xFF2B3245),
+                              color: cs.primary,
                               fontSize: 18,
                               fontWeight: FontWeight.bold,
                             ),
@@ -169,15 +170,21 @@ class _LoginPageState extends State<LoginPage> {
                   children: [
                     GestureDetector(
                       onTap: () => Navigator.of(context).pushNamed('/register'),
-                      child: const Text("注册账号", style: TextStyle(color: Colors.grey, fontSize: 14)),
+                      child: Text("注册账号",
+                          style: TextStyle(
+                              color: cs.onSurfaceVariant, fontSize: 14)),
                     ),
-                    const Padding(
-                      padding: EdgeInsets.symmetric(horizontal: 16),
-                      child: Text("|", style: TextStyle(color: Colors.grey, fontSize: 14)),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      child: Text("|",
+                          style: TextStyle(
+                              color: cs.onSurfaceVariant, fontSize: 14)),
                     ),
                     GestureDetector(
                       onTap: () => Navigator.of(context).pushNamed('/forgot-password'),
-                      child: const Text("忘记密码", style: TextStyle(color: Colors.grey, fontSize: 14)),
+                      child: Text("忘记密码",
+                          style: TextStyle(
+                              color: cs.onSurfaceVariant, fontSize: 14)),
                     ),
                   ],
                 ),
@@ -187,9 +194,10 @@ class _LoginPageState extends State<LoginPage> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Expanded(child: Divider(color: Colors.grey.shade300, endIndent: 10)),
-                    const Text("其他登录方式", style: TextStyle(color: Colors.grey, fontSize: 12)),
-                    Expanded(child: Divider(color: Colors.grey.shade300, indent: 10)),
+                    Expanded(child: Divider(color: cs.outlineVariant, endIndent: 10)),
+                    Text("其他登录方式",
+                        style: TextStyle(color: cs.onSurfaceVariant, fontSize: 12)),
+                    Expanded(child: Divider(color: cs.outlineVariant, indent: 10)),
                   ],
                 ),
                 const SizedBox(height: 20),
@@ -201,19 +209,9 @@ class _LoginPageState extends State<LoginPage> {
                       alignment: Alignment.center,
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
-                        border: Border.all(color: Colors.grey.shade200),
+                        border: Border.all(color: cs.outlineVariant),
                       ),
-                      child: Image.asset("assets/img/wechat.png", width: 28, height: 28, fit: BoxFit.contain),
-                    ),
-                    const SizedBox(width: 30),
-                    Container(
-                      width: 50, height: 50,
-                      alignment: Alignment.center,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        border: Border.all(color: Colors.grey.shade200),
-                      ),
-                      child: Image.asset("assets/img/QQ.png", width: 28, height: 28, fit: BoxFit.contain),
+                      child: Icon(Icons.wechat, size: 28, color: const Color(0xFF07C160)),
                     ),
                   ],
                 ),

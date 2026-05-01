@@ -91,14 +91,14 @@ class _SensorHistoryPageState extends State<SensorHistoryPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF5F7FA),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
-        title: const Text(
+        title: Text(
           '历史数据查询',
           style: TextStyle(
-              color: Colors.black87, fontWeight: FontWeight.bold),
+              color: Theme.of(context).colorScheme.onSurface, fontWeight: FontWeight.bold),
         ),
-        backgroundColor: Colors.white,
+        backgroundColor: Theme.of(context).colorScheme.surface,
       ),
       body: Column(
         children: [
@@ -127,10 +127,10 @@ class _SensorHistoryPageState extends State<SensorHistoryPage> {
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             Icon(Icons.inbox_outlined,
-                                size: 48, color: Colors.grey.shade400),
+                                size: 48, color: Theme.of(context).colorScheme.onSurfaceVariant),
                             const SizedBox(height: 12),
-                            const Text('当前筛选条件下没有数据',
-                                style: TextStyle(color: Colors.grey)),
+                            Text('当前筛选条件下没有数据',
+                                style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant)),
                           ],
                         ),
                       )

@@ -15,17 +15,17 @@ class CropDetailPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final info = getDetailHealthInfo(crop.health);
+    final info = getDetailHealthInfo(context, crop.health);
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF5F7FA),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
-        backgroundColor: Colors.white,
+        backgroundColor: Theme.of(context).colorScheme.surface,
         elevation: 0,
         title: Text(
           '${greenhouseIndex + 1}号大棚 - ${crop.cropName}',
-          style: const TextStyle(
-              color: Colors.black87, fontWeight: FontWeight.bold),
+          style: TextStyle(
+              color: Theme.of(context).colorScheme.onSurface, fontWeight: FontWeight.bold),
         ),
       ),
       body: SingleChildScrollView(
@@ -71,7 +71,7 @@ class CropDetailPage extends StatelessWidget {
   }
 
   Widget _buildDivider() {
-    return const Divider(height: 1, color: Colors.black12);
+    return const Divider(height: 1);
   }
 
   String _formatDate(String? dateStr) {

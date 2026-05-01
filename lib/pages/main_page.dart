@@ -147,7 +147,7 @@ class MainPageState extends State<MainPage> {
             Icon(
               isSelected ? selectedIcon : icon,
               size: 26,
-              color: isSelected ? colorScheme.primary : Colors.grey.shade400,
+                  color: isSelected ? colorScheme.primary : colorScheme.onSurfaceVariant,
             ),
             const SizedBox(height: 4),
             Text(
@@ -155,7 +155,7 @@ class MainPageState extends State<MainPage> {
               style: TextStyle(
                 fontSize: 12,
                 fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
-                color: isSelected ? colorScheme.primary : Colors.grey.shade400,
+                    color: isSelected ? colorScheme.primary : colorScheme.onSurfaceVariant,
               ),
             ),
           ],

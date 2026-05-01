@@ -12,7 +12,7 @@ class FarmCard extends StatelessWidget {
         padding:
             const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: Theme.of(context).colorScheme.surfaceContainerLow,
           borderRadius: BorderRadius.circular(20),
           boxShadow: [
             BoxShadow(
@@ -33,15 +33,15 @@ class FarmCard extends StatelessWidget {
                           true
                       ? AuthService.instance.currentUser!.farm
                       : '东郊农场',
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.bold,
-                    color: Colors.black87,
+                    color: Theme.of(context).colorScheme.onSurface,
                   ),
                 ),
                 const SizedBox(height: 4),
-                const Text('1个成员',
-                    style: TextStyle(fontSize: 12, color: Colors.grey)),
+                Text('1个成员',
+                    style: TextStyle(fontSize: 12, color: Theme.of(context).colorScheme.onSurfaceVariant)),
               ],
             ),
             Row(
@@ -58,7 +58,7 @@ class FarmCard extends StatelessWidget {
                           width: 50,
                           height: 50,
                           decoration: BoxDecoration(
-                            color: const Color(0xFFF5F7FA),
+                            color: Theme.of(context).scaffoldBackgroundColor,
                             shape: BoxShape.circle,
                             border: Border.all(
                               color:
@@ -77,7 +77,7 @@ class FarmCard extends StatelessWidget {
                           width: 50,
                           height: 50,
                           decoration: BoxDecoration(
-                            color: const Color(0xFFF5F7FA),
+                            color: Theme.of(context).scaffoldBackgroundColor,
                             shape: BoxShape.circle,
                             border: Border.all(
                               color:

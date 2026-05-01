@@ -32,7 +32,7 @@ class WeatherCard extends StatelessWidget {
         duration: const Duration(milliseconds: 300),
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: isRefreshing ? Colors.grey.shade100 : Colors.white,
+          color: isRefreshing ? Colors.grey.shade100 : Theme.of(context).colorScheme.surface,
           borderRadius: BorderRadius.circular(14),
         ),
         child: Column(
@@ -40,11 +40,14 @@ class WeatherCard extends StatelessWidget {
             Row(
               children: [
                 Icon(Icons.location_on_outlined,
-                    size: 14, color: Colors.black45),
+                    size: 14,
+                    color: Theme.of(context).colorScheme.onSurfaceVariant),
                 const SizedBox(width: 4),
                 Text(city,
-                    style:
-                        const TextStyle(fontSize: 13, color: Colors.black54)),
+                    style: TextStyle(
+                        fontSize: 13,
+                        color:
+                            Theme.of(context).colorScheme.onSurfaceVariant)),
               ],
             ),
             const SizedBox(height: 12),
@@ -69,16 +72,18 @@ class WeatherCard extends StatelessWidget {
                 const SizedBox(width: 10),
                 Text(
                   weatherTemp,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 34,
                     fontWeight: FontWeight.w600,
-                    color: Colors.black87,
+                    color: Theme.of(context).colorScheme.onSurface,
                   ),
                 ),
                 const SizedBox(width: 8),
                 Text(weatherText,
-                    style:
-                        const TextStyle(fontSize: 14, color: Colors.black54)),
+                    style: TextStyle(
+                        fontSize: 14,
+                        color:
+                            Theme.of(context).colorScheme.onSurfaceVariant)),
                 const Spacer(),
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.end,
@@ -86,11 +91,18 @@ class WeatherCard extends StatelessWidget {
                     Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Icon(Icons.air, size: 13, color: Colors.grey),
+                        Icon(Icons.air,
+                            size: 13,
+                            color: Theme.of(context)
+                                .colorScheme
+                                .onSurfaceVariant),
                         const SizedBox(width: 3),
                         Text(weatherWind,
-                            style: const TextStyle(
-                                fontSize: 12, color: Colors.black54)),
+                            style: TextStyle(
+                                fontSize: 12,
+                                color: Theme.of(context)
+                                    .colorScheme
+                                    .onSurfaceVariant)),
                       ],
                     ),
                     const SizedBox(height: 4),
@@ -98,11 +110,17 @@ class WeatherCard extends StatelessWidget {
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Icon(Icons.water_drop_outlined,
-                            size: 13, color: Colors.grey),
+                            size: 13,
+                            color: Theme.of(context)
+                                .colorScheme
+                                .onSurfaceVariant),
                         const SizedBox(width: 3),
                         Text(weatherHumidity,
-                            style: const TextStyle(
-                                fontSize: 12, color: Colors.black54)),
+                            style: TextStyle(
+                                fontSize: 12,
+                                color: Theme.of(context)
+                                    .colorScheme
+                                    .onSurfaceVariant)),
                       ],
                     ),
                   ],

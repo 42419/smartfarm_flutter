@@ -20,6 +20,7 @@ class SettingTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(20),
@@ -40,13 +41,13 @@ class SettingTile extends StatelessWidget {
             const SizedBox(width: 14),
             Expanded(
               child: Text(title,
-                  style: const TextStyle(
-                      fontSize: 16, color: Colors.black87)),
+                  style: TextStyle(
+                      fontSize: 16, color: Theme.of(context).colorScheme.onSurface)),
             ),
             if (trailingText != null)
               Text(trailingText!,
                   style:
-                      const TextStyle(fontSize: 14, color: Colors.grey)),
+                      TextStyle(fontSize: 14, color: Theme.of(context).colorScheme.onSurfaceVariant)),
             if (trailingText != null) const SizedBox(width: 8),
             if (hasRedDot)
               Container(
@@ -59,7 +60,7 @@ class SettingTile extends StatelessWidget {
                 ),
               ),
             Icon(Icons.arrow_forward_ios,
-                size: 14, color: Colors.grey.shade400),
+                size: 14, color: cs.onSurfaceVariant),
           ],
         ),
       ),
@@ -78,7 +79,7 @@ class SettingsCard extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 16.0),
       child: Container(
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: Theme.of(context).colorScheme.surfaceContainerLow,
           borderRadius: BorderRadius.circular(20),
           boxShadow: [
             BoxShadow(

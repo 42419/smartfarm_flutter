@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+
 import '../pages/alerts/alert_center_page.dart';
 import '../pages/sensor_history/sensor_history_page.dart';
-import 'package:smart_farm_flutter/services/app_feedback.dart';
+import '../services/app_feedback.dart';
+import '../services/theme_service.dart';
 
 import '../pages/login_page.dart';
 import '../pages/main_page.dart';
@@ -11,12 +13,27 @@ import '../pages/edit_profile_page.dart';
 import '../pages/ai_chat/ai_chat_page.dart';
 
 Widget getRootWidget({String initialRoute = '/login'}) {
-  return MaterialApp(
-    initialRoute: initialRoute,
-    routes: getRootRoutes(),
-    debugShowCheckedModeBanner: false,
-    scaffoldMessengerKey: appScaffoldMessengerKey,
-    theme: ThemeData(colorSchemeSeed: Colors.greenAccent),
+  return ValueListenableBuilder<ThemeMode>(
+    valueListenable: ThemeService.instance.modeNotifier,
+    builder: (context, themeMode, _) {
+      return MaterialApp(
+        initialRoute: initialRoute,
+        routes: getRootRoutes(),
+        debugShowCheckedModeBanner: false,
+        scaffoldMessengerKey: appScaffoldMessengerKey,
+        themeMode: themeMode,
+        theme: _buildTheme(Brightness.light),
+        darkTheme: _buildTheme(Brightness.dark),
+      );
+    },
+  );
+}
+
+ThemeData _buildTheme(Brightness brightness) {
+  return ThemeData(
+    colorSchemeSeed: Colors.greenAccent,
+    brightness: brightness,
+    useMaterial3: true,
   );
 }
 

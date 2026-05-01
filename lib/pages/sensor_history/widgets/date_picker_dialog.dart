@@ -195,8 +195,8 @@ class _CustomDatePickerDialogState extends State<CustomDatePickerDialog> {
                   .map(
                     (e) => Text(
                       e,
-                      style: const TextStyle(
-                        color: Colors.grey,
+                      style: TextStyle(
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
                         fontWeight: FontWeight.bold,
                       ),
                     ),
@@ -245,9 +245,9 @@ class _CustomDatePickerDialogState extends State<CustomDatePickerDialog> {
                           child: Container(
                             decoration: BoxDecoration(
                               color: isSelected
-                                  ? const Color(0xFF2B3245)
+                                  ? Theme.of(context).colorScheme.primary
                                   : isAvailable
-                                      ? const Color(0xFFF3F6FA)
+                                      ? Theme.of(context).colorScheme.surfaceContainerHighest
                                       : Colors.transparent,
                               shape: BoxShape.circle,
                             ),
@@ -256,11 +256,10 @@ class _CustomDatePickerDialogState extends State<CustomDatePickerDialog> {
                               day.toString(),
                               style: TextStyle(
                                 color: isSelected
-                                    ? Colors.white
+                                    ? Theme.of(context).colorScheme.onPrimary
                                     : isAvailable
-                                        ? Colors.black87
-                                        : Colors.grey
-                                            .withValues(alpha: 0.4),
+                                        ? Theme.of(context).colorScheme.onSurface
+                                        : Theme.of(context).colorScheme.onSurfaceVariant.withValues(alpha: 0.4),
                                 fontWeight: isSelected
                                     ? FontWeight.bold
                                     : FontWeight.normal,
@@ -276,8 +275,8 @@ class _CustomDatePickerDialogState extends State<CustomDatePickerDialog> {
               alignment: Alignment.centerRight,
               child: TextButton(
                 onPressed: () => Navigator.of(context).pop(),
-                child: const Text('取消',
-                    style: TextStyle(color: Colors.grey)),
+                child: Text('取消',
+                    style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant)),
               ),
             ),
           ],
