@@ -127,6 +127,7 @@ class _OverviewPageState extends State<OverviewPage> {
       startDate: start,
       endDate: now,
       limit: 10000,
+      forceRefresh: true,
     );
 
     if (records.isEmpty) return;

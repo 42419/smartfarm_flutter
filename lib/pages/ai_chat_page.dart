@@ -45,11 +45,13 @@ class _AiChatPageState extends State<AiChatPage> {
   StreamSubscription<CozeStreamEvent>? _streamSub;
   bool _hasInputText = false;
   String? _currentConversationId;
+  bool _autoScroll = true;
 
   @override
   void initState() {
     super.initState();
     _inputController.addListener(_onInputChanged);
+    _scrollController.addListener(_onScrollChanged);
   }
 
   void _onInputChanged() {
@@ -59,9 +61,20 @@ class _AiChatPageState extends State<AiChatPage> {
     }
   }
 
+  void _onScrollChanged() {
+    if (!_scrollController.hasClients) return;
+    final pos = _scrollController.position;
+    // 距离底部 50px 以内视为"在底部"，重新开启自动滚动
+    final atBottom = pos.pixels >= pos.maxScrollExtent - 50;
+    if (atBottom != _autoScroll) {
+      setState(() => _autoScroll = atBottom);
+    }
+  }
+
   @override
   void dispose() {
     _inputController.removeListener(_onInputChanged);
+    _scrollController.removeListener(_onScrollChanged);
     _inputController.dispose();
     _scrollController.dispose();
     _inputFocus.dispose();
@@ -70,6 +83,7 @@ class _AiChatPageState extends State<AiChatPage> {
   }
 
   void _scrollToBottom() {
+    if (!_autoScroll) return;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (_scrollController.hasClients) {
         _scrollController.animateTo(
@@ -81,31 +95,35 @@ class _AiChatPageState extends State<AiChatPage> {
     });
   }
 
-  String get _userId =>
-      AuthService.instance.currentUser?.id ?? 'anonymous';
+  String get _userId => AuthService.instance.currentUser?.id ?? 'anonymous';
 
   void _sendMessage() {
     final text = _inputController.text.trim();
     if (text.isEmpty || _isAiThinking) return;
 
     setState(() {
-      _messages.add(_ChatMessage(
-        id: DateTime.now().millisecondsSinceEpoch.toString(),
-        content: text,
-        isUser: true,
-        time: DateTime.now(),
-        isComplete: true,
-      ));
+      _messages.add(
+        _ChatMessage(
+          id: DateTime.now().millisecondsSinceEpoch.toString(),
+          content: text,
+          isUser: true,
+          time: DateTime.now(),
+          isComplete: true,
+        ),
+      );
       _isAiThinking = true;
       _reasoningMsgIndex = _messages.length;
-      _messages.add(_ChatMessage(
-        id: 'ai_${DateTime.now().millisecondsSinceEpoch}',
-        content: '',
-        isUser: false,
-        time: DateTime.now(),
-      ));
+      _messages.add(
+        _ChatMessage(
+          id: 'ai_${DateTime.now().millisecondsSinceEpoch}',
+          content: '',
+          isUser: false,
+          time: DateTime.now(),
+        ),
+      );
     });
     _inputController.clear();
+    _autoScroll = true;
     _scrollToBottom();
 
     _ensureConversation(text);
@@ -113,7 +131,7 @@ class _AiChatPageState extends State<AiChatPage> {
     final aiMsgIndex = _messages.length - 1;
     final stream = CozeService.instance.sendMessage(_userId, text);
     _streamSub = stream.listen(
-      (event) {
+          (event) {
         if (!mounted) return;
         switch (event.type) {
           case CozeEventType.reasoning:
@@ -191,7 +209,9 @@ class _AiChatPageState extends State<AiChatPage> {
   void _ensureConversation(String firstMessage) {
     if (_currentConversationId != null) {
       AiConversationService.instance.saveMessage(
-        _currentConversationId!, 'user', firstMessage,
+        _currentConversationId!,
+        'user',
+        firstMessage,
       );
       return;
     }
@@ -207,7 +227,8 @@ class _AiChatPageState extends State<AiChatPage> {
         .then((id) {
       _currentConversationId = id;
       AiConversationService.instance.saveMessage(id, 'user', firstMessage);
-    }).catchError((_) {});
+    })
+        .catchError((_) {});
   }
 
   void _saveAiMessage(String? content) {
@@ -266,13 +287,16 @@ class _AiChatPageState extends State<AiChatPage> {
     _streamSub?.cancel();
     CozeService.instance.startNewChat();
 
-    final dbMessages =
-        await AiConversationService.instance.fetchMessages(conv.id);
+    final dbMessages = await AiConversationService.instance.fetchMessages(
+      conv.id,
+    );
 
     _messages.clear();
     for (final msg in dbMessages) {
       final chatMsg = _ChatMessage(
-        id: msg.id?.toString() ?? DateTime.now().millisecondsSinceEpoch.toString(),
+        id:
+        msg.id?.toString() ??
+            DateTime.now().millisecondsSinceEpoch.toString(),
         content: msg.content,
         isUser: msg.role == 'user',
         time: msg.createdAt,
@@ -294,6 +318,7 @@ class _AiChatPageState extends State<AiChatPage> {
     _currentConversationId = conv.id;
 
     if (mounted) {
+      _autoScroll = true;
       setState(() {});
       Navigator.of(context).pop();
       _scrollToBottom();
@@ -330,6 +355,26 @@ class _AiChatPageState extends State<AiChatPage> {
     _sendMessage();
   }
 
+  void _stopAi() {
+    _streamSub?.cancel();
+    _streamSub = null;
+    if (_messages.isNotEmpty) {
+      final lastMsg = _messages.last;
+      if (!lastMsg.isUser && !lastMsg.isComplete) {
+        setState(() {
+          if (lastMsg.content.isEmpty) {
+            lastMsg.content = '已停止生成';
+          }
+          lastMsg.isComplete = true;
+          _isAiThinking = false;
+          _reasoningMsgIndex = null;
+        });
+        _saveAiMessage(lastMsg.content);
+        _saveCozeConversationId();
+      }
+    }
+  }
+
   void _startNewChat({bool silent = false}) {
     _streamSub?.cancel();
     CozeService.instance.startNewChat();
@@ -338,6 +383,7 @@ class _AiChatPageState extends State<AiChatPage> {
       _isAiThinking = false;
       _reasoningMsgIndex = null;
       _currentConversationId = null;
+      _autoScroll = true;
     });
     if (!silent) {
       _scrollToBottom();
@@ -353,14 +399,16 @@ class _AiChatPageState extends State<AiChatPage> {
       appBar: AppBar(
         title: const Text('AI 助手'),
         centerTitle: true,
+        scrolledUnderElevation: 0,
+        surfaceTintColor: Colors.transparent,
         actions: [
           IconButton(
-            icon: const Icon(Icons.history),
+            icon: const Icon(Icons.history_outlined),
             tooltip: '历史记录',
             onPressed: _openHistory,
           ),
           IconButton(
-            icon: const Icon(Icons.add_comment_outlined),
+            icon: const Icon(Icons.add_circle_outline_outlined),
             tooltip: '新对话',
             onPressed: () => _startNewChat(),
           ),
@@ -377,96 +425,115 @@ class _AiChatPageState extends State<AiChatPage> {
         isThinking: _isAiThinking,
         hasText: _hasInputText,
         onSend: _sendMessage,
+        onStop: _stopAi,
       ),
     );
   }
 
   Widget _buildWelcomeView(ColorScheme colorScheme, bool isDark) {
     final suggestions = [
-      '今天大棚环境怎么样？',
-      '最近一周温度趋势如何？',
-      '帮我分析一下土壤数据',
       '如何提高作物产量？',
-      '当前设备运行状态总览',
       '病虫害防治建议',
+      '什么时候适合灌溉？',
+      '如何判断是否缺肥？',
+      '土壤湿度偏低怎么办？',
+      '温度过高会有什么影响？',
+      '湿度异常怎么调节？',
+      '光照不足怎么补光？',
+      '叶片发黄可能是什么原因？',
+      '大棚通风要注意什么？',
+      '作物长势差应该先排查什么？',
+      '农作物常见病害怎么识别？',
     ];
 
-    return SingleChildScrollView(
-      padding: const EdgeInsets.symmetric(horizontal: 24),
-      child: Column(
-        children: [
-          const SizedBox(height: 48),
-          Container(
-            width: 80,
-            height: 80,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              gradient: LinearGradient(
-                colors: [colorScheme.primary, colorScheme.tertiary],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
-            ),
-            child: const Icon(Icons.auto_awesome, color: Colors.white, size: 40),
-          ),
-          const SizedBox(height: 20),
-          Text(
-            '你好，我是禾寻 AI',
-            style: TextStyle(
-              fontSize: 22,
-              fontWeight: FontWeight.w600,
-              color: colorScheme.onSurface,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            '你的智能农业助手，随时为你解答',
-            style: TextStyle(
-              fontSize: 14,
-              color: colorScheme.onSurface.withOpacity(0.5),
-            ),
-          ),
-          const SizedBox(height: 36),
-          Align(
-            alignment: Alignment.centerLeft,
-            child: Text(
-              '试试这样问我',
-              style: TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w500,
-                color: colorScheme.onSurface.withOpacity(0.4),
-              ),
-            ),
-          ),
-          const SizedBox(height: 12),
-          Wrap(
-            spacing: 10,
-            runSpacing: 10,
-            children: suggestions.map((s) {
-              return GestureDetector(
-                onTap: () => _onSuggestionTap(s),
-                child: Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                  decoration: BoxDecoration(
-                    color: isDark
-                        ? colorScheme.surfaceContainerHighest
-                        : colorScheme.primaryContainer.withOpacity(0.3),
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: Text(
-                    s,
-                    style: TextStyle(
-                      fontSize: 13,
-                      color: colorScheme.onSurface,
-                    ),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        return SingleChildScrollView(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: ConstrainedBox(
+            constraints: BoxConstraints(minHeight: constraints.maxHeight),
+            child: Column(
+              children: [
+                SizedBox(height: constraints.maxHeight * 0.12),
+                Container(
+                  width: 150,
+                  height: 150,
+                  decoration: const BoxDecoration(shape: BoxShape.circle),
+                  child: Image.asset("assets/img/ai.png", width: 200, height: 200),
+                ),
+                const SizedBox(height: 20),
+                Text(
+                  '你好，我是禾寻 AI',
+                  style: TextStyle(
+                    fontSize: 22,
+                    fontWeight: FontWeight.w600,
+                    color: colorScheme.onSurface,
                   ),
                 ),
-              );
-            }).toList(),
+                const SizedBox(height: 8),
+                Text(
+                  '你的智能农业助手，随时为你解答',
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: colorScheme.onSurface.withOpacity(0.5),
+                  ),
+                ),
+                const SizedBox(height: 32),
+                // 整体横向滚动建议 —— 豆包风格
+                _buildSuggestionGrid(
+                  suggestions: suggestions,
+                  colorScheme: colorScheme,
+                  isDark: isDark,
+                ),
+              ],
+            ),
           ),
-          const SizedBox(height: 80),
-        ],
+        );
+      },
+    );
+  }
+
+  Widget _buildSuggestionGrid({
+    required List<String> suggestions,
+    required ColorScheme colorScheme,
+    required bool isDark,
+  }) {
+    return SizedBox(
+      height: 40.0 * 3 + 8.0 * 2,
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: Wrap(
+          direction: Axis.vertical,
+          spacing: 8,
+          runSpacing: 8,
+          children: suggestions.map((s) {
+            return GestureDetector(
+              onTap: () => _onSuggestionTap(s),
+              child: Container(
+                height: 40,
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: isDark
+                      ? colorScheme.surfaceContainerHigh
+                      : colorScheme.surfaceContainerLow,
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(
+                    color: colorScheme.outlineVariant.withOpacity(0.2),
+                  ),
+                ),
+                child: Text(
+                  s,
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: colorScheme.onSurface,
+                  ),
+                  maxLines: 1,
+                ),
+              ),
+            );
+          }).toList(),
+        ),
       ),
     );
   }
@@ -477,24 +544,30 @@ class _AiChatPageState extends State<AiChatPage> {
       padding: const EdgeInsets.only(top: 8, bottom: 8),
       itemCount: _messages.length,
       itemBuilder: (context, index) {
-        return _buildMessageBubble(_messages[index], index, colorScheme, isDark);
+        return _buildMessageBubble(
+          _messages[index],
+          index,
+          colorScheme,
+          isDark,
+        );
       },
     );
   }
 
   Widget _buildMessageBubble(
-    _ChatMessage msg,
-    int index,
-    ColorScheme colorScheme,
-    bool isDark,
-  ) {
+      _ChatMessage msg,
+      int index,
+      ColorScheme colorScheme,
+      bool isDark,
+      ) {
     final isStreaming = !msg.isUser && !msg.isComplete && msg.content.isEmpty;
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
       child: Row(
-        mainAxisAlignment:
-            msg.isUser ? MainAxisAlignment.end : MainAxisAlignment.start,
+        mainAxisAlignment: msg.isUser
+            ? MainAxisAlignment.end
+            : MainAxisAlignment.start,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           if (!msg.isUser) ...[
@@ -508,8 +581,7 @@ class _AiChatPageState extends State<AiChatPage> {
                   : CrossAxisAlignment.start,
               children: [
                 if (msg.reasoningContent.isNotEmpty)
-                  _buildReasoningSection(
-                      msg, index, colorScheme, isDark),
+                  _buildReasoningSection(msg, index, colorScheme, isDark),
                 if (!isStreaming)
                   _buildBubble(msg, colorScheme, isDark)
                 else
@@ -527,11 +599,11 @@ class _AiChatPageState extends State<AiChatPage> {
   }
 
   Widget _buildReasoningSection(
-    _ChatMessage msg,
-    int index,
-    ColorScheme colorScheme,
-    bool isDark,
-  ) {
+      _ChatMessage msg,
+      int index,
+      ColorScheme colorScheme,
+      bool isDark,
+      ) {
     final isReasoningCurrent =
         index == _reasoningMsgIndex && msg.content.isEmpty;
     return Padding(
@@ -545,82 +617,73 @@ class _AiChatPageState extends State<AiChatPage> {
     );
   }
 
-  Widget _buildBubble(
-      _ChatMessage msg, ColorScheme colorScheme, bool isDark) {
+  Widget _buildBubble(_ChatMessage msg, ColorScheme colorScheme, bool isDark) {
+    final isUser = msg.isUser;
+    final bgColor = isUser
+        ? colorScheme.primaryContainer
+        : isDark
+        ? colorScheme.surfaceContainerHigh
+        : colorScheme.surfaceContainerLow;
+    final textColor = isUser
+        ? colorScheme.onPrimaryContainer
+        : colorScheme.onSurface;
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
       decoration: BoxDecoration(
-        color: msg.isUser
-            ? colorScheme.primary
-            : isDark
-                ? colorScheme.surfaceContainerHighest
-                : colorScheme.surfaceContainerLow,
+        color: bgColor,
         borderRadius: BorderRadius.only(
           topLeft: const Radius.circular(18),
           topRight: const Radius.circular(18),
-          bottomLeft:
-              msg.isUser ? const Radius.circular(18) : const Radius.circular(4),
-          bottomRight:
-              msg.isUser ? const Radius.circular(4) : const Radius.circular(18),
+          bottomLeft: isUser
+              ? const Radius.circular(18)
+              : const Radius.circular(4),
+          bottomRight: isUser
+              ? const Radius.circular(4)
+              : const Radius.circular(18),
         ),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          if (msg.content.isNotEmpty)
-            msg.isUser
-                ? Text(
-                    msg.content,
-                    style: TextStyle(
-                      fontSize: 15,
-                      color: colorScheme.onPrimary,
-                      height: 1.5,
-                    ),
-                  )
-                : MarkdownBody(
-                    data: msg.content,
-                    selectable: true,
-                    styleSheet: MarkdownStyleSheet(
-                      p: TextStyle(
-                        fontSize: 15,
-                        color: colorScheme.onSurface,
-                        height: 1.5,
-                      ),
-                      code: TextStyle(
-                        fontSize: 13,
-                        backgroundColor: isDark
-                            ? Colors.white12
-                            : Colors.black12,
-                        color: colorScheme.onSurface,
-                      ),
-                      codeblockDecoration: BoxDecoration(
-                        color: isDark
-                            ? Colors.white10
-                            : Colors.black12,
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      blockquoteDecoration: BoxDecoration(
-                        border: Border(
-                          left: BorderSide(
-                            color: colorScheme.primary.withOpacity(0.4),
-                            width: 3,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-          const SizedBox(height: 4),
-          Text(
-            '${msg.time.hour.toString().padLeft(2, '0')}:${msg.time.minute.toString().padLeft(2, '0')}',
-            style: TextStyle(
-              fontSize: 11,
-              color: msg.isUser
-                  ? colorScheme.onPrimary.withOpacity(0.6)
-                  : colorScheme.onSurface.withOpacity(0.35),
+      child: msg.content.isNotEmpty
+          ? isUser
+          ? Text(
+        msg.content,
+        style: TextStyle(
+          fontSize: 15,
+          color: textColor,
+          height: 1.5,
+        ),
+      )
+          : MarkdownBody(
+        data: msg.content,
+        selectable: true,
+        styleSheet: MarkdownStyleSheet(
+          p: TextStyle(
+            fontSize: 15,
+            color: textColor,
+            height: 1.5,
+          ),
+          code: TextStyle(
+            fontSize: 13,
+            backgroundColor: isDark
+                ? Colors.white12
+                : Colors.black12,
+            color: textColor,
+          ),
+          codeblockDecoration: BoxDecoration(
+            color: isDark ? Colors.white10 : Colors.black12,
+            borderRadius: BorderRadius.circular(8),
+          ),
+          blockquoteDecoration: BoxDecoration(
+            border: Border(
+              left: BorderSide(
+                color: colorScheme.primary.withOpacity(0.4),
+                width: 3,
+              ),
             ),
           ),
-        ],
-      ),
+        ),
+      )
+          : const SizedBox.shrink(),
     );
   }
 
@@ -629,7 +692,7 @@ class _AiChatPageState extends State<AiChatPage> {
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       decoration: BoxDecoration(
         color: isDark
-            ? colorScheme.surfaceContainerHighest
+            ? colorScheme.surfaceContainerHigh
             : colorScheme.surfaceContainerLow,
         borderRadius: const BorderRadius.only(
           topLeft: Radius.circular(18),
@@ -651,19 +714,22 @@ class _AiChatPageState extends State<AiChatPage> {
           backgroundImage: NetworkImage(avatarUrl),
         );
       }
+      return CircleAvatar(
+        radius: 16,
+        backgroundColor: colorScheme.primaryContainer,
+        child: Icon(
+          Icons.person,
+          size: 18,
+          color: colorScheme.onPrimaryContainer,
+        ),
+      );
     }
     return CircleAvatar(
       radius: 16,
-      backgroundColor:
-          isUser ? colorScheme.primaryContainer : colorScheme.tertiaryContainer,
-      child: Icon(
-        isUser ? Icons.person : Icons.auto_awesome,
-        size: 18,
-        color: isUser ? colorScheme.primary : colorScheme.tertiary,
-      ),
+      backgroundColor: colorScheme.tertiaryContainer,
+      backgroundImage: const AssetImage('assets/img/ai.png'),
     );
-}
-
+  }
 }
 
 class _ChatInputBar extends StatelessWidget {
@@ -673,6 +739,7 @@ class _ChatInputBar extends StatelessWidget {
     required this.isThinking,
     required this.hasText,
     required this.onSend,
+    required this.onStop,
   });
 
   final TextEditingController controller;
@@ -680,24 +747,20 @@ class _ChatInputBar extends StatelessWidget {
   final bool isThinking;
   final bool hasText;
   final VoidCallback onSend;
+  final VoidCallback onStop;
 
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final bottom = MediaQuery.of(context).padding.bottom +
-        MediaQuery.of(context).viewInsets.bottom;
+    final bottom =
+        MediaQuery.of(context).padding.bottom +
+            MediaQuery.of(context).viewInsets.bottom;
 
     return Container(
       padding: EdgeInsets.fromLTRB(12, 8, 12, 8 + bottom),
       decoration: BoxDecoration(
         color: colorScheme.surface,
-        border: Border(
-          top: BorderSide(
-            color: colorScheme.outlineVariant.withOpacity(0.3),
-            width: 0.5,
-          ),
-        ),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.end,
@@ -706,10 +769,8 @@ class _ChatInputBar extends StatelessWidget {
             child: Container(
               constraints: const BoxConstraints(maxHeight: 120),
               decoration: BoxDecoration(
-                color: isDark
-                    ? colorScheme.surfaceContainerHighest
-                    : colorScheme.surfaceContainerLow,
-                borderRadius: BorderRadius.circular(24),
+                color: colorScheme.surfaceContainerHigh,
+                borderRadius: BorderRadius.circular(28),
               ),
               child: TextField(
                 controller: controller,
@@ -717,19 +778,16 @@ class _ChatInputBar extends StatelessWidget {
                 minLines: 1,
                 maxLines: 4,
                 textInputAction: TextInputAction.newline,
-                style: TextStyle(
-                  fontSize: 15,
-                  color: colorScheme.onSurface,
-                ),
+                style: TextStyle(fontSize: 15, color: colorScheme.onSurface),
                 decoration: InputDecoration(
                   hintText: '向 AI 提问...',
                   hintStyle: TextStyle(
-                    color: colorScheme.onSurface.withOpacity(0.35),
+                    color: colorScheme.onSurface.withOpacity(0.4),
                     fontSize: 15,
                   ),
                   contentPadding: const EdgeInsets.symmetric(
-                    horizontal: 18,
-                    vertical: 10,
+                    horizontal: 20,
+                    vertical: 12,
                   ),
                   border: InputBorder.none,
                 ),
@@ -745,15 +803,15 @@ class _ChatInputBar extends StatelessWidget {
               shape: BoxShape.circle,
               color: hasText
                   ? colorScheme.primary
-                  : colorScheme.onSurface.withOpacity(0.1),
+                  : colorScheme.surfaceContainerHighest,
             ),
             child: IconButton(
-              onPressed: isThinking ? null : onSend,
+              onPressed: isThinking ? onStop : onSend,
               icon: Icon(
                 isThinking ? Icons.stop : Icons.arrow_upward,
                 color: hasText
                     ? colorScheme.onPrimary
-                    : colorScheme.onSurface.withOpacity(0.3),
+                    : colorScheme.onSurface.withOpacity(0.4),
                 size: 22,
               ),
               padding: EdgeInsets.zero,
@@ -798,8 +856,8 @@ class _ReasoningCardState extends State<_ReasoningCard> {
     return Container(
       decoration: BoxDecoration(
         color: widget.isDark
-            ? widget.colorScheme.surfaceContainerHighest.withOpacity(0.5)
-            : widget.colorScheme.primaryContainer.withOpacity(0.15),
+            ? widget.colorScheme.surfaceContainerHigh.withOpacity(0.5)
+            : widget.colorScheme.secondaryContainer.withOpacity(0.3),
         borderRadius: BorderRadius.circular(12),
       ),
       child: Column(
@@ -818,9 +876,7 @@ class _ReasoningCardState extends State<_ReasoningCard> {
                     const SizedBox(
                       width: 14,
                       height: 14,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 1.5,
-                      ),
+                      child: CircularProgressIndicator(strokeWidth: 1.5),
                     )
                   else
                     Icon(
@@ -856,16 +912,16 @@ class _ReasoningCardState extends State<_ReasoningCard> {
             curve: Curves.easeInOut,
             child: _expanded
                 ? Padding(
-                    padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
-                    child: Text(
-                      widget.content,
-                      style: TextStyle(
-                        fontSize: 13,
-                        color: widget.colorScheme.onSurface.withOpacity(0.55),
-                        height: 1.6,
-                      ),
-                    ),
-                  )
+              padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
+              child: Text(
+                widget.content,
+                style: TextStyle(
+                  fontSize: 13,
+                  color: widget.colorScheme.onSurface.withOpacity(0.55),
+                  height: 1.6,
+                ),
+              ),
+            )
                 : const SizedBox.shrink(),
           ),
         ],
@@ -919,10 +975,9 @@ class _TypingDotsState extends State<_TypingDots>
                   width: 8,
                   height: 8,
                   decoration: BoxDecoration(
-                    color: Theme.of(context)
-                        .colorScheme
-                        .onSurface
-                        .withOpacity(0.4),
+                    color: Theme.of(
+                      context,
+                    ).colorScheme.onSurface.withOpacity(0.4),
                     shape: BoxShape.circle,
                   ),
                 ),
@@ -967,8 +1022,9 @@ class _HistorySheetState extends State<_HistorySheet> {
   Future<void> _loadConversations() async {
     setState(() => _isLoading = true);
     try {
-      _conversations =
-          await AiConversationService.instance.fetchConversations(widget.userId);
+      _conversations = await AiConversationService.instance.fetchConversations(
+        widget.userId,
+      );
     } catch (_) {
       _conversations = [];
     }
@@ -1023,10 +1079,22 @@ class _HistorySheetState extends State<_HistorySheet> {
                 const Spacer(),
                 TextButton.icon(
                   onPressed: widget.onNewChat,
-                  icon: Icon(Icons.add_rounded, size: 18, color: colorScheme.primary),
-                  label: Text('新对话', style: TextStyle(color: colorScheme.primary, fontWeight: FontWeight.w600)),
+                  icon: Icon(
+                    Icons.add_rounded,
+                    size: 18,
+                    color: colorScheme.primary,
+                  ),
+                  label: Text(
+                    '新对话',
+                    style: TextStyle(
+                      color: colorScheme.primary,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
                   style: TextButton.styleFrom(
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(20),
+                    ),
                     padding: const EdgeInsets.symmetric(horizontal: 14),
                   ),
                 ),
@@ -1034,110 +1102,155 @@ class _HistorySheetState extends State<_HistorySheet> {
             ),
           ),
           const SizedBox(height: 8),
-          Divider(height: 1, color: colorScheme.outlineVariant.withOpacity(0.3)),
+          Divider(
+            height: 1,
+            color: colorScheme.outlineVariant.withOpacity(0.3),
+          ),
           Expanded(
             child: _isLoading
                 ? const Center(child: CircularProgressIndicator())
                 : _conversations.isEmpty
-                    ? Center(
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(Icons.chat_bubble_outline, size: 48, color: colorScheme.onSurface.withOpacity(0.15)),
-                            const SizedBox(height: 12),
-                            Text('暂无对话记录', style: TextStyle(color: colorScheme.onSurface.withOpacity(0.35), fontSize: 15)),
-                          ],
+                ? Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    Icons.chat_bubble_outline,
+                    size: 48,
+                    color: colorScheme.onSurface.withOpacity(0.15),
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    '暂无对话记录',
+                    style: TextStyle(
+                      color: colorScheme.onSurface.withOpacity(0.35),
+                      fontSize: 15,
+                    ),
+                  ),
+                ],
+              ),
+            )
+                : RefreshIndicator(
+              onRefresh: _loadConversations,
+              child: ListView.separated(
+                padding: const EdgeInsets.symmetric(vertical: 4),
+                itemCount: _conversations.length,
+                separatorBuilder: (_, __) => Divider(
+                  height: 1,
+                  indent: 72,
+                  color: colorScheme.outlineVariant.withOpacity(0.2),
+                ),
+                itemBuilder: (context, index) {
+                  final conv = _conversations[index];
+                  final timeStr = _formatTime(conv.updatedAt);
+                  return Dismissible(
+                    key: Key(conv.id),
+                    direction: DismissDirection.endToStart,
+                    confirmDismiss: (_) async {
+                      _handleDelete(conv);
+                      return false;
+                    },
+                    background: Container(
+                      alignment: Alignment.centerRight,
+                      padding: const EdgeInsets.only(right: 24),
+                      decoration: BoxDecoration(
+                        color: colorScheme.error,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      margin: const EdgeInsets.symmetric(
+                        vertical: 4,
+                        horizontal: 12,
+                      ),
+                      child: Icon(
+                        Icons.delete_outline,
+                        color: colorScheme.onError,
+                        size: 24,
+                      ),
+                    ),
+                    child: InkWell(
+                      onTap: () => widget.onSelect(conv),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 12,
                         ),
-                      )
-                    : RefreshIndicator(
-                        onRefresh: _loadConversations,
-                        child: ListView.separated(
-                          padding: const EdgeInsets.symmetric(vertical: 4),
-                          itemCount: _conversations.length,
-                          separatorBuilder: (_, __) => Divider(height: 1, indent: 72, color: colorScheme.outlineVariant.withOpacity(0.2)),
-                          itemBuilder: (context, index) {
-                            final conv = _conversations[index];
-                            final timeStr = _formatTime(conv.updatedAt);
-                            return Dismissible(
-                              key: Key(conv.id),
-                              direction: DismissDirection.endToStart,
-                              confirmDismiss: (_) async {
-                                _handleDelete(conv);
-                                return false;
-                              },
-                              background: Container(
-                                alignment: Alignment.centerRight,
-                                padding: const EdgeInsets.only(right: 24),
-                                decoration: BoxDecoration(
-                                  color: colorScheme.error,
-                                  borderRadius: BorderRadius.circular(12),
+                        child: Row(
+                          children: [
+                            Container(
+                              width: 46,
+                              height: 46,
+                              decoration: BoxDecoration(
+                                color: _avatarColor(
+                                  index,
+                                  isDark,
+                                  colorScheme,
                                 ),
-                                margin: const EdgeInsets.symmetric(vertical: 4, horizontal: 12),
-                                child: Icon(Icons.delete_outline, color: colorScheme.onError, size: 24),
+                                borderRadius: BorderRadius.circular(14),
                               ),
-                              child: InkWell(
-                                onTap: () => widget.onSelect(conv),
-                                child: Padding(
-                                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                                  child: Row(
-                                    children: [
-                                      Container(
-                                        width: 46,
-                                        height: 46,
-                                        decoration: BoxDecoration(
-                                          color: _avatarColor(index, isDark, colorScheme),
-                                          borderRadius: BorderRadius.circular(14),
-                                        ),
-                                        child: Center(
-                                          child: Text(
-                                            conv.title.isNotEmpty ? conv.title[0].toUpperCase() : '?',
-                                            style: TextStyle(
-                                              fontSize: 20,
-                                              fontWeight: FontWeight.w700,
-                                              color: _avatarTextColor(index, isDark, colorScheme),
-                                            ),
-                                          ),
-                                        ),
-                                      ),
-                                      const SizedBox(width: 14),
-                                      Expanded(
-                                        child: Column(
-                                          crossAxisAlignment: CrossAxisAlignment.start,
-                                          children: [
-                                            Text(
-                                              conv.title,
-                                              maxLines: 1,
-                                              overflow: TextOverflow.ellipsis,
-                                              style: TextStyle(
-                                                fontSize: 15,
-                                                fontWeight: FontWeight.w600,
-                                                color: colorScheme.onSurface,
-                                              ),
-                                            ),
-                                            const SizedBox(height: 4),
-                                            Text(
-                                              timeStr,
-                                              style: TextStyle(
-                                                fontSize: 12,
-                                                color: colorScheme.onSurface.withOpacity(0.4),
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                      ),
-                                      IconButton(
-                                        icon: Icon(Icons.delete_outline, size: 20, color: colorScheme.onSurface.withOpacity(0.2)),
-                                        onPressed: () => _handleDelete(conv),
-                                        splashRadius: 20,
-                                      ),
-                                    ],
+                              child: Center(
+                                child: Text(
+                                  conv.title.isNotEmpty
+                                      ? conv.title[0].toUpperCase()
+                                      : '?',
+                                  style: TextStyle(
+                                    fontSize: 20,
+                                    fontWeight: FontWeight.w700,
+                                    color: _avatarTextColor(
+                                      index,
+                                      isDark,
+                                      colorScheme,
+                                    ),
                                   ),
                                 ),
                               ),
-                            );
-                          },
+                            ),
+                            const SizedBox(width: 14),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment:
+                                CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    conv.title,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: TextStyle(
+                                      fontSize: 15,
+                                      fontWeight: FontWeight.w600,
+                                      color: colorScheme.onSurface,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    timeStr,
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: colorScheme.onSurface
+                                          .withOpacity(0.4),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            IconButton(
+                              icon: Icon(
+                                Icons.delete_outline,
+                                size: 20,
+                                color: colorScheme.onSurface.withOpacity(
+                                  0.2,
+                                ),
+                              ),
+                              onPressed: () => _handleDelete(conv),
+                              splashRadius: 20,
+                            ),
+                          ],
                         ),
                       ),
+                    ),
+                  );
+                },
+              ),
+            ),
           ),
         ],
       ),
@@ -1146,8 +1259,12 @@ class _HistorySheetState extends State<_HistorySheet> {
 
   Color _avatarColor(int index, bool isDark, ColorScheme cs) {
     final colors = [
-      cs.primary, cs.tertiary, const Color(0xFF4CAF50),
-      const Color(0xFFFF9800), const Color(0xFF9C27B0), const Color(0xFF00BCD4),
+      cs.primary,
+      cs.tertiary,
+      const Color(0xFF4CAF50),
+      const Color(0xFFFF9800),
+      const Color(0xFF9C27B0),
+      const Color(0xFF00BCD4),
     ];
     final base = colors[index % colors.length];
     return isDark ? base.withOpacity(0.2) : base.withOpacity(0.12);
@@ -1155,10 +1272,16 @@ class _HistorySheetState extends State<_HistorySheet> {
 
   Color _avatarTextColor(int index, bool isDark, ColorScheme cs) {
     final colors = [
-      cs.primary, cs.tertiary, const Color(0xFF4CAF50),
-      const Color(0xFFFF9800), const Color(0xFF9C27B0), const Color(0xFF00BCD4),
+      cs.primary,
+      cs.tertiary,
+      const Color(0xFF4CAF50),
+      const Color(0xFFFF9800),
+      const Color(0xFF9C27B0),
+      const Color(0xFF00BCD4),
     ];
-    return isDark ? colors[index % colors.length].withOpacity(0.9) : colors[index % colors.length];
+    return isDark
+        ? colors[index % colors.length].withOpacity(0.9)
+        : colors[index % colors.length];
   }
 
   String _formatTime(DateTime time) {

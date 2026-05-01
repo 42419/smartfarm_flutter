@@ -298,10 +298,10 @@ class _SensorHistoryPageState extends State<SensorHistoryPage> {
     super.initState();
     _endDate = DateTime.now();
     _startDate = DateTime.now().subtract(const Duration(days: 30));
-    _loadRecords();
+    _loadRecords(forceRefresh: true);
   }
 
-  Future<void> _loadRecords() async {
+  Future<void> _loadRecords({bool forceRefresh = false}) async {
     setState(() {
       _loading = true;
     });
@@ -312,6 +312,7 @@ class _SensorHistoryPageState extends State<SensorHistoryPage> {
       endDate: _endDate,
       descending: _descending,
       limit: _limit,
+      forceRefresh: forceRefresh,
     );
 
     if (!mounted) {
@@ -452,7 +453,9 @@ class _SensorHistoryPageState extends State<SensorHistoryPage> {
                   width: double.infinity,
                   height: 46,
                   child: ElevatedButton(
-                    onPressed: _loading ? null : _loadRecords,
+                    onPressed: _loading
+                        ? null
+                        : () => _loadRecords(forceRefresh: true),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: const Color(0xFF2B3245),
                       foregroundColor: Colors.white,

@@ -36,7 +36,7 @@ class _DataMonitorPageState extends State<DataMonitorPage>
   void initState() {
     super.initState();
     DeviceManager.instance.addListener(_onDeviceUpdate);
-    _loadTrendData();
+    _loadTrendData(forceRefresh: true);
   }
 
   @override
@@ -64,7 +64,7 @@ class _DataMonitorPageState extends State<DataMonitorPage>
     }
   }
 
-  Future<void> _loadTrendData() async {
+  Future<void> _loadTrendData({bool forceRefresh = false}) async {
     setState(() {
       _isTrendLoading = true;
     });
@@ -73,6 +73,7 @@ class _DataMonitorPageState extends State<DataMonitorPage>
       greenhouse: Config.supabaseGreenhouse,
       metric: _metrics[_selectedMetricIndex]['column'] as String,
       range: _selectedRange,
+      forceRefresh: forceRefresh,
     );
 
     if (!mounted) {
@@ -638,13 +639,13 @@ class _DataMonitorPageState extends State<DataMonitorPage>
   String _getTimeLabel(int xValue) {
     if (_selectedTimeIndex == 0) {
       const labels = [
-        '00:00',
-        '04:00',
-        '08:00',
-        '12:00',
-        '16:00',
-        '20:00',
-        '24:00',
+        '00',
+        '04',
+        '08',
+        '12',
+        '16',
+        '20',
+        '24',
       ];
       if (xValue >= 0 && xValue < labels.length) {
         return labels[xValue];
