@@ -2,67 +2,11 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
+import '../models/sensor_history_record.dart';
 import '../models/sensor_trend_point.dart';
+import 'sensor_cache_manager.dart';
 import 'supabase_service.dart';
-
-class SensorHistoryRecord {
-  const SensorHistoryRecord({
-    required this.recordedAt,
-    this.temperature,
-    this.humidity,
-    this.illumination,
-    this.soilMoisture,
-    this.co2,
-    this.phValue,
-  });
-
-  final DateTime recordedAt;
-  final double? temperature;
-  final double? humidity;
-  final double? illumination;
-  final double? soilMoisture;
-  final double? co2;
-  final double? phValue;
-
-  double get effectiveSoilMoisture {
-    if (soilMoisture != null) {
-      return soilMoisture!;
-    }
-    if (temperature != null && humidity != null) {
-      final estimated = 75 - (temperature! - 22) * 2 + (humidity! - 60) * 0.5;
-      return estimated.clamp(10.0, 95.0);
-    }
-    return 60;
-  }
-
-  Map<String, dynamic> toJson() {
-    return {
-      'recordedAt': recordedAt.toIso8601String(),
-      'temperature': temperature,
-      'humidity': humidity,
-      'illumination': illumination,
-      'soilMoisture': soilMoisture,
-      'co2': co2,
-      'phValue': phValue,
-    };
-  }
-
-  factory SensorHistoryRecord.fromJson(Map<String, dynamic> json) {
-    return SensorHistoryRecord(
-      recordedAt:
-          DateTime.tryParse(json['recordedAt']?.toString() ?? '') ??
-          DateTime.now(),
-      temperature: _readDoubleValue(json['temperature']),
-      humidity: _readDoubleValue(json['humidity']),
-      illumination: _readDoubleValue(json['illumination']),
-      soilMoisture: _readDoubleValue(json['soilMoisture']),
-      co2: _readDoubleValue(json['co2']),
-      phValue: _readDoubleValue(json['phValue']),
-    );
-  }
-}
 
 enum TrendRange { last24Hours, last7Days, last30Days }
 
@@ -77,7 +21,7 @@ class SensorHistoryService {
   static final SensorHistoryService instance = SensorHistoryService._();
 
   DateTime? _lastRecordedAt;
-  final Map<String, _HistoryCacheEntry> _memoryCache = {};
+  final SensorCacheManager _cache = SensorCacheManager.instance;
 
   Future<void> recordReading({
     required String greenhouse,
@@ -89,14 +33,10 @@ class SensorHistoryService {
     double? phValue,
   }) async {
     final client = SupabaseService.maybeClient;
-    if (client == null) {
-      return;
-    }
+    if (client == null) return;
 
     final now = DateTime.now();
-    if (_shouldSkipRecord(now)) {
-      return;
-    }
+    if (_shouldSkipRecord(now)) return;
 
     try {
       await client.from('sensor_readings').insert({
@@ -123,20 +63,18 @@ class SensorHistoryService {
   }) async {
     final cacheKey = _trendCacheKey(greenhouse, metric, range);
     if (!forceRefresh) {
-      final cached = await _readCache<List<SensorTrendPoint>>(
+      final cached = await _cache.read<List<SensorTrendPoint>>(
         cacheKey,
         _decodeTrendPoints,
       );
       if (cached != null) {
         if (cached.isStale(_trendCacheTtl)) {
-          unawaited(
-            _refreshTrendCache(
-              cacheKey: cacheKey,
-              greenhouse: greenhouse,
-              metric: metric,
-              range: range,
-            ),
-          );
+          unawaited(_refreshTrendCache(
+            cacheKey: cacheKey,
+            greenhouse: greenhouse,
+            metric: metric,
+            range: range,
+          ));
         }
         return cached.value;
       }
@@ -166,22 +104,20 @@ class SensorHistoryService {
       limit: limit,
     );
     if (!forceRefresh) {
-      final cached = await _readCache<List<SensorHistoryRecord>>(
+      final cached = await _cache.read<List<SensorHistoryRecord>>(
         cacheKey,
         _decodeHistoryRecords,
       );
       if (cached != null) {
         if (cached.isStale(_recordsCacheTtl)) {
-          unawaited(
-            _refreshRecordsCache(
-              cacheKey: cacheKey,
-              greenhouse: greenhouse,
-              startDate: startDate,
-              endDate: endDate,
-              descending: descending,
-              limit: limit,
-            ),
-          );
+          unawaited(_refreshRecordsCache(
+            cacheKey: cacheKey,
+            greenhouse: greenhouse,
+            startDate: startDate,
+            endDate: endDate,
+            descending: descending,
+            limit: limit,
+          ));
         }
         return cached.value;
       }
@@ -203,18 +139,16 @@ class SensorHistoryService {
   }) async {
     final cacheKey = _availableDatesCacheKey(greenhouse);
     if (!forceRefresh) {
-      final cached = await _readCache<Set<DateTime>>(
+      final cached = await _cache.read<Set<DateTime>>(
         cacheKey,
         _decodeDateSet,
       );
       if (cached != null) {
         if (cached.isStale(_availableDatesCacheTtl)) {
-          unawaited(
-            _refreshAvailableDatesCache(
-              cacheKey: cacheKey,
-              greenhouse: greenhouse,
-            ),
-          );
+          unawaited(_refreshAvailableDatesCache(
+            cacheKey: cacheKey,
+            greenhouse: greenhouse,
+          ));
         }
         return cached.value;
       }
@@ -227,21 +161,13 @@ class SensorHistoryService {
   }
 
   bool _shouldSkipRecord(DateTime now) {
-    if (_lastRecordedAt == null) {
-      return false;
-    }
-
-    final elapsed = now.difference(_lastRecordedAt!);
-    return elapsed < _minRecordInterval;
+    if (_lastRecordedAt == null) return false;
+    return now.difference(_lastRecordedAt!) < _minRecordInterval;
   }
 
   double? _readDouble(dynamic raw) {
-    if (raw == null) {
-      return null;
-    }
-    if (raw is num) {
-      return raw.toDouble();
-    }
+    if (raw == null) return null;
+    if (raw is num) return raw.toDouble();
     return double.tryParse(raw.toString());
   }
 
@@ -264,9 +190,7 @@ class SensorHistoryService {
     required TrendRange range,
   }) async {
     final client = SupabaseService.maybeClient;
-    if (client == null) {
-      return const [];
-    }
+    if (client == null) return const [];
 
     final now = DateTime.now().toUtc();
     final start = switch (range) {
@@ -289,30 +213,26 @@ class SensorHistoryService {
         final recordedAt = DateTime.tryParse(
           row['recorded_at']?.toString() ?? '',
         );
-        if (value == null || recordedAt == null) {
-          continue;
-        }
+        if (value == null || recordedAt == null) continue;
 
         final label = _bucketLabel(recordedAt.toLocal(), range);
         buckets.putIfAbsent(label, () => <double>[]).add(value);
       }
 
       final points = buckets.entries
-          .map(
-            (entry) => SensorTrendPoint(
-              label: entry.key,
-              value: entry.value.reduce((a, b) => a + b) / entry.value.length,
-            ),
-          )
+          .map((entry) => SensorTrendPoint(
+                label: entry.key,
+                value:
+                    entry.value.reduce((a, b) => a + b) / entry.value.length,
+              ))
           .toList();
-      await _writeCache(cacheKey, points.map((e) => e.toJson()).toList());
+      await _cache.write(
+          cacheKey, points.map((e) => e.toJson()).toList());
       return points;
     } catch (error) {
       debugPrint('Supabase fetchTrend failed: $error');
-      final cached = await _readCache<List<SensorTrendPoint>>(
-        cacheKey,
-        _decodeTrendPoints,
-      );
+      final cached =
+          await _cache.read<List<SensorTrendPoint>>(cacheKey, _decodeTrendPoints);
       return cached?.value ?? const [];
     }
   }
@@ -326,20 +246,18 @@ class SensorHistoryService {
     required int limit,
   }) async {
     final client = SupabaseService.maybeClient;
-    if (client == null) {
-      return const [];
-    }
+    if (client == null) return const [];
 
     try {
       var query = client
           .from('sensor_readings')
           .select(
-            'recorded_at, temperature, humidity, illumination, soil_moisture, co2, ph_value',
-          )
+              'recorded_at, temperature, humidity, illumination, soil_moisture, co2, ph_value')
           .eq('greenhouse', greenhouse);
 
       if (startDate != null) {
-        query = query.gte('recorded_at', startDate.toUtc().toIso8601String());
+        query = query.gte(
+            'recorded_at', startDate.toUtc().toIso8601String());
       }
       if (endDate != null) {
         final inclusiveEnd = endDate
@@ -350,17 +268,15 @@ class SensorHistoryService {
           inclusiveEnd.toUtc().toIso8601String(),
         );
       }
-      final finalQuery = query
-          .order('recorded_at', ascending: !descending)
-          .limit(limit);
+      final finalQuery =
+          query.order('recorded_at', ascending: !descending).limit(limit);
 
       final rows = await finalQuery;
       final records = rows.map((row) {
         final recordedAt =
-            DateTime.tryParse(
-              row['recorded_at']?.toString() ?? '',
-            )?.toLocal() ??
-            DateTime.now();
+            DateTime.tryParse(row['recorded_at']?.toString() ?? '')
+                    ?.toLocal() ??
+                DateTime.now();
         return SensorHistoryRecord(
           recordedAt: recordedAt,
           temperature: _readDouble(row['temperature']),
@@ -371,17 +287,13 @@ class SensorHistoryService {
           phValue: _readDouble(row['ph_value']),
         );
       }).toList();
-      await _writeCache(
-        cacheKey,
-        records.map((e) => e.toJson()).toList(),
-      );
+      await _cache.write(
+          cacheKey, records.map((e) => e.toJson()).toList());
       return records;
     } catch (error) {
       debugPrint('Supabase fetchRecords failed: $error');
-      final cached = await _readCache<List<SensorHistoryRecord>>(
-        cacheKey,
-        _decodeHistoryRecords,
-      );
+      final cached = await _cache.read<List<SensorHistoryRecord>>(
+          cacheKey, _decodeHistoryRecords);
       return cached?.value ?? const [];
     }
   }
@@ -391,9 +303,7 @@ class SensorHistoryService {
     required String greenhouse,
   }) async {
     final client = SupabaseService.maybeClient;
-    if (client == null) {
-      return {};
-    }
+    if (client == null) return {};
 
     try {
       final rows = await client
@@ -411,103 +321,49 @@ class SensorHistoryService {
           }
         }
       }
-      await _writeCache(
-        cacheKey,
-        dates.map((date) => date.toIso8601String()).toList(),
-      );
+      await _cache.write(cacheKey,
+          dates.map((date) => date.toIso8601String()).toList());
       return dates;
     } catch (error) {
       debugPrint('fetchAvailableDates failed: $error');
-      final cached = await _readCache<Set<DateTime>>(
-        cacheKey,
-        _decodeDateSet,
-      );
+      final cached =
+          await _cache.read<Set<DateTime>>(cacheKey, _decodeDateSet);
       return cached?.value ?? {};
     }
-  }
-
-  Future<_CachedValue<T>?> _readCache<T>(
-    String key,
-    T Function(Object? payload) decoder,
-  ) async {
-    final memoryEntry = _memoryCache[key];
-    if (memoryEntry != null) {
-      return _CachedValue(
-        value: decoder(memoryEntry.payload),
-        savedAt: memoryEntry.savedAt,
-      );
-    }
-
-    final prefs = await SharedPreferences.getInstance();
-    final raw = prefs.getString(key);
-    if (raw == null) {
-      return null;
-    }
-
-    try {
-      final decoded = jsonDecode(raw) as Map<String, dynamic>;
-      final savedAt =
-          DateTime.tryParse(decoded['savedAt']?.toString() ?? '') ??
-          DateTime.fromMillisecondsSinceEpoch(0);
-      final payload = decoded['payload'];
-      final entry = _HistoryCacheEntry(savedAt: savedAt, payload: payload);
-      _memoryCache[key] = entry;
-      return _CachedValue(
-        value: decoder(payload),
-        savedAt: savedAt,
-      );
-    } catch (_) {
-      return null;
-    }
-  }
-
-  Future<void> _writeCache(String key, Object payload) async {
-    final entry = _HistoryCacheEntry(
-      savedAt: DateTime.now(),
-      payload: payload,
-    );
-    _memoryCache[key] = entry;
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(
-      key,
-      jsonEncode({
-        'savedAt': entry.savedAt.toIso8601String(),
-        'payload': payload,
-      }),
-    );
   }
 
   List<SensorTrendPoint> _decodeTrendPoints(Object? payload) {
     final items = (payload as List<dynamic>? ?? const []);
     return items
-        .map((item) => SensorTrendPoint.fromJson(item as Map<String, dynamic>))
+        .map((item) =>
+            SensorTrendPoint.fromJson(item as Map<String, dynamic>))
         .toList();
   }
 
   List<SensorHistoryRecord> _decodeHistoryRecords(Object? payload) {
     final items = (payload as List<dynamic>? ?? const []);
     return items
-        .map((item) => SensorHistoryRecord.fromJson(item as Map<String, dynamic>))
+        .map((item) =>
+            SensorHistoryRecord.fromJson(item as Map<String, dynamic>))
         .toList();
   }
 
   Set<DateTime> _decodeDateSet(Object? payload) {
     final items = (payload as List<dynamic>? ?? const []);
     return items
-        .map(
-          (item) => DateTime.tryParse(item.toString())?.toLocal(),
-        )
+        .map((item) => DateTime.tryParse(item.toString())?.toLocal())
         .whereType<DateTime>()
         .map((dt) => DateTime(dt.year, dt.month, dt.day))
         .toSet();
   }
 
-  String _trendCacheKey(String greenhouse, String metric, TrendRange range) {
+  String _trendCacheKey(
+      String greenhouse, String metric, TrendRange range) {
     return 'sensor_history_trend_${jsonEncode({
-      'greenhouse': greenhouse,
-      'metric': metric,
-      'range': range.name,
-    })}';
+          'greenhouse': greenhouse,
+          'metric': metric,
+          'range': range.name,
+        })}';
   }
 
   String _recordsCacheKey({
@@ -518,51 +374,17 @@ class SensorHistoryService {
     required int limit,
   }) {
     return 'sensor_history_records_${jsonEncode({
-      'greenhouse': greenhouse,
-      'startDate': startDate?.toUtc().toIso8601String(),
-      'endDate': endDate?.toUtc().toIso8601String(),
-      'descending': descending,
-      'limit': limit,
-    })}';
+          'greenhouse': greenhouse,
+          'startDate': startDate?.toUtc().toIso8601String(),
+          'endDate': endDate?.toUtc().toIso8601String(),
+          'descending': descending,
+          'limit': limit,
+        })}';
   }
 
   String _availableDatesCacheKey(String greenhouse) {
     return 'sensor_history_dates_${jsonEncode({
-      'greenhouse': greenhouse,
-    })}';
+          'greenhouse': greenhouse,
+        })}';
   }
-}
-
-class _HistoryCacheEntry {
-  const _HistoryCacheEntry({
-    required this.savedAt,
-    required this.payload,
-  });
-
-  final DateTime savedAt;
-  final Object payload;
-}
-
-class _CachedValue<T> {
-  const _CachedValue({
-    required this.value,
-    required this.savedAt,
-  });
-
-  final T value;
-  final DateTime savedAt;
-
-  bool isStale(Duration ttl) {
-    return DateTime.now().difference(savedAt) > ttl;
-  }
-}
-
-double? _readDoubleValue(Object? raw) {
-  if (raw == null) {
-    return null;
-  }
-  if (raw is num) {
-    return raw.toDouble();
-  }
-  return double.tryParse(raw.toString());
 }

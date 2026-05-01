@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 
-import 'pageViews/data_monitor_page.dart';
-import 'pageViews/device_control_page.dart';
-import 'pageViews/overview_page.dart';
-import 'pageViews/profile_page.dart';
+import 'monitor/data_monitor_page.dart';
+import 'devices/device_control_page.dart';
+import 'home/overview_page.dart';
+import 'profile/profile_page.dart';
 
 class MainPage extends StatefulWidget {
   const MainPage({super.key});

@@ -7,33 +7,11 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../services/app_feedback.dart';
 import '../../services/device_manager.dart';
+import '../../widgets/common/stat_card.dart';
 import '../main_page.dart';
-
-class _AlertData {
-  final String id;
-  final String borderColorKey;
-  final String tagText;
-  final String title;
-  final DateTime time;
-  final String content;
-  final String primaryActionText;
-  final IconData primaryActionIcon;
-  final Color primaryActionColor;
-  final bool isGenerated;
-
-  _AlertData({
-    required this.id,
-    required this.borderColorKey,
-    required this.tagText,
-    required this.title,
-    required this.time,
-    required this.content,
-    required this.primaryActionText,
-    required this.primaryActionIcon,
-    required this.primaryActionColor,
-    this.isGenerated = false,
-  });
-}
+import 'models/alert_data.dart';
+import 'widgets/alert_card.dart';
+import 'widgets/dismissible_alert.dart';
 
 class AlertCenterPage extends StatefulWidget {
   const AlertCenterPage({super.key});
@@ -45,14 +23,14 @@ class AlertCenterPage extends StatefulWidget {
 class _AlertCenterPageState extends State<AlertCenterPage> {
   int _selectedFilterIndex = 0;
   final Set<String> _dismissedIds = {};
-  final List<_AlertData> _generatedAlerts = [];
+  final List<AlertData> _generatedAlerts = [];
   Timer? _generateTimer;
   final _random = Random();
 
   static const String _dismissedKey = 'dismissed_alert_ids';
 
-  static final List<_AlertData> _baseAlerts = [
-    _AlertData(
+  static final List<AlertData> _baseAlerts = [
+    AlertData(
       id: 'alert_1',
       borderColorKey: 'red',
       tagText: '紧急',
@@ -63,7 +41,7 @@ class _AlertCenterPageState extends State<AlertCenterPage> {
       primaryActionIcon: Icons.water_drop_outlined,
       primaryActionColor: Colors.blueAccent,
     ),
-    _AlertData(
+    AlertData(
       id: 'alert_2',
       borderColorKey: 'amber',
       tagText: '警告',
@@ -72,9 +50,9 @@ class _AlertCenterPageState extends State<AlertCenterPage> {
       content: '3号大棚 当前温度29.2℃，接近阈值30℃，建议开启通风',
       primaryActionText: '开启通风',
       primaryActionIcon: Icons.air,
-      primaryActionColor: Color(0xFF2ECC71),
+      primaryActionColor: const Color(0xFF2ECC71),
     ),
-    _AlertData(
+    AlertData(
       id: 'alert_3',
       borderColorKey: 'orange',
       tagText: '离线',
@@ -83,7 +61,7 @@ class _AlertCenterPageState extends State<AlertCenterPage> {
       content: '4号大棚 土壤湿度传感器已离线30分钟，请检查设备连接',
       primaryActionText: '查看设备',
       primaryActionIcon: Icons.settings_outlined,
-      primaryActionColor: Color(0xFF34495E),
+      primaryActionColor: const Color(0xFF34495E),
     ),
   ];
 
@@ -139,13 +117,15 @@ class _AlertCenterPageState extends State<AlertCenterPage> {
         try {
           final list = jsonDecode(raw) as List<dynamic>;
           final ids = list.cast<String>().toSet();
-          final allBaseDismissed =
-              ids.contains('alert_1') && ids.contains('alert_2') && ids.contains('alert_3');
+          final allBaseDismissed = ids.contains('alert_1') &&
+              ids.contains('alert_2') &&
+              ids.contains('alert_3');
           if (allBaseDismissed) {
             ids.removeAll({'alert_1', 'alert_2', 'alert_3'});
           }
           _dismissedIds.addAll(ids);
-          await prefs.setString(_dismissedKey, jsonEncode(_dismissedIds.toList()));
+          await prefs.setString(
+              _dismissedKey, jsonEncode(_dismissedIds.toList()));
         } catch (_) {}
       }
       await prefs.setBool('alert_migrated_v2', true);
@@ -164,7 +144,8 @@ class _AlertCenterPageState extends State<AlertCenterPage> {
   Future<void> _dismissAlert(String id) async {
     _dismissedIds.add(id);
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_dismissedKey, jsonEncode(_dismissedIds.toList()));
+    await prefs.setString(
+        _dismissedKey, jsonEncode(_dismissedIds.toList()));
     _generatedAlerts.removeWhere((a) => a.id == id);
     if (mounted) setState(() {});
   }
@@ -184,14 +165,16 @@ class _AlertCenterPageState extends State<AlertCenterPage> {
 
     final template = _templates[_random.nextInt(_templates.length)];
     final greenHouseNum = _random.nextInt(4) + 1;
-    final value = template['title'] == '温度偏高'
+    final title = template['title'] as String;
+    final value = title == '温度偏高'
         ? (28.5 + _random.nextDouble() * 3.0).toStringAsFixed(1)
-        : (template['title'] == '湿度过低'
+        : (title == '湿度过低'
             ? (35 + _random.nextInt(10)).toString()
             : (14 + _random.nextInt(8)).toString());
 
     final minuteOffset = max(0, now.difference(todayStart).inMinutes - 1);
-    final randomMinute = minuteOffset > 0 ? _random.nextInt(minuteOffset) : 0;
+    final randomMinute =
+        minuteOffset > 0 ? _random.nextInt(minuteOffset) : 0;
     final alertTime = todayStart.add(Duration(minutes: randomMinute));
 
     final id = 'gen_${DateTime.now().millisecondsSinceEpoch}';
@@ -199,11 +182,11 @@ class _AlertCenterPageState extends State<AlertCenterPage> {
     setState(() {
       _generatedAlerts.insert(
         0,
-        _AlertData(
+        AlertData(
           id: id,
           borderColorKey: template['colorKey'] as String,
           tagText: template['tag'] as String,
-          title: template['title'] as String,
+          title: title,
           time: alertTime,
           content: (template['body'] as String)
               .replaceFirst('{}', greenHouseNum.toString())
@@ -303,9 +286,16 @@ class _AlertCenterPageState extends State<AlertCenterPage> {
 
   int get _totalCount => _unhandledCount + _handledCount;
 
+  VoidCallback? _getAction(AlertData alert) {
+    if (alert.primaryActionText == '一键灌溉') return _handleIrrigation;
+    if (alert.primaryActionText == '开启通风') return _handleVentilation;
+    if (alert.primaryActionText == '查看设备') return _handleViewDevice;
+    return null;
+  }
+
   @override
   Widget build(BuildContext context) {
-    final activeAlerts = <_AlertData>[
+    final activeAlerts = <AlertData>[
       ..._generatedAlerts,
       for (final a in _baseAlerts)
         if (!_dismissedIds.contains(a.id)) a,
@@ -319,7 +309,8 @@ class _AlertCenterPageState extends State<AlertCenterPage> {
           children: [
             GestureDetector(
               onTap: () => Navigator.of(context).pop(),
-              child: const Icon(Icons.arrow_back_ios, color: Colors.black87),
+              child: const Icon(Icons.arrow_back_ios,
+                  color: Colors.black87),
             ),
             const SizedBox(width: 8),
             const Text(
@@ -349,21 +340,30 @@ class _AlertCenterPageState extends State<AlertCenterPage> {
         ],
       ),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+        padding:
+            const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
               children: [
-                _buildStatCard('今日告警', '$_totalCount', Colors.redAccent),
-                const SizedBox(width: 10),
-                _buildStatCard(
-                  '未处理',
-                  '$_unhandledCount',
-                  Colors.orangeAccent,
+                CompactStatCard(
+                  label: '今日告警',
+                  value: '$_totalCount',
+                  color: Colors.redAccent,
                 ),
                 const SizedBox(width: 10),
-                _buildStatCard('已处理', '$_handledCount', Colors.green),
+                CompactStatCard(
+                  label: '未处理',
+                  value: '$_unhandledCount',
+                  color: Colors.orangeAccent,
+                ),
+                const SizedBox(width: 10),
+                CompactStatCard(
+                  label: '已处理',
+                  value: '$_handledCount',
+                  color: Colors.green,
+                ),
               ],
             ),
             const SizedBox(height: 20),
@@ -389,25 +389,16 @@ class _AlertCenterPageState extends State<AlertCenterPage> {
               const SizedBox(height: 12),
               ...activeAlerts.map((a) => Padding(
                     padding: const EdgeInsets.only(bottom: 12),
-                    child: _DismissibleAlert(
+                    child: DismissibleAlert(
                       alertId: a.id,
                       onDismissed: () => _dismissAlert(a.id),
-                      child: _buildActiveAlertCard(
+                      child: ActiveAlertCard(
+                        alert: a,
                         borderColor: _borderColor(a.borderColorKey),
-                        tagText: a.tagText,
                         tagColor: _tagColor(a.borderColorKey),
                         tagBgColor: _tagBgColor(a.borderColorKey),
-                        title: a.title,
                         time: _formatTime(a.time),
-                        content: a.content,
-                        primaryActionText: a.primaryActionText,
-                        primaryActionIcon: a.primaryActionIcon,
-                        primaryActionColor: a.primaryActionColor,
-                        onPrimaryAction: a.primaryActionText == '一键灌溉'
-                            ? _handleIrrigation
-                            : a.primaryActionText == '开启通风'
-                                ? _handleVentilation
-                                : _handleViewDevice,
+                        onPrimaryAction: _getAction(a),
                         onIgnore: () => _dismissAlert(a.id),
                       ),
                     ),
@@ -434,7 +425,7 @@ class _AlertCenterPageState extends State<AlertCenterPage> {
                 ),
               ),
               const SizedBox(height: 12),
-              _buildHandledAlertCard(
+              HandledAlertCard(
                 tagText: '已处理',
                 title: '空气湿度过低',
                 time: '昨天 16:38',
@@ -442,7 +433,7 @@ class _AlertCenterPageState extends State<AlertCenterPage> {
                 handledText: '已开启通风换气，当前CO₂浓度已恢复至820ppm',
               ),
               const SizedBox(height: 12),
-              _buildHandledAlertCard(
+              HandledAlertCard(
                 tagText: '已处理',
                 title: 'CO2浓度偏高',
                 time: '昨天 14:22',
@@ -457,43 +448,17 @@ class _AlertCenterPageState extends State<AlertCenterPage> {
     );
   }
 
-  Widget _buildStatCard(String label, String value, Color color) {
-    return Expanded(
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 12),
-        decoration: BoxDecoration(
-          color: color.withValues(alpha: 0.08),
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: Column(
-          children: [
-            Text(
-              value,
-              style: TextStyle(
-                fontSize: 22,
-                fontWeight: FontWeight.bold,
-                color: color,
-              ),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              label,
-              style: const TextStyle(fontSize: 12, color: Colors.black54),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
   Widget _buildFilterChip(String label, int index) {
     final selected = _selectedFilterIndex == index;
     return GestureDetector(
       onTap: () => setState(() => _selectedFilterIndex = index),
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        padding:
+            const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         decoration: BoxDecoration(
-          color: selected ? const Color(0xFF2B3245) : const Color(0xFFF5F7FA),
+          color: selected
+              ? const Color(0xFF2B3245)
+              : const Color(0xFFF5F7FA),
           borderRadius: BorderRadius.circular(20),
         ),
         child: Text(
@@ -505,284 +470,6 @@ class _AlertCenterPageState extends State<AlertCenterPage> {
           ),
         ),
       ),
-    );
-  }
-
-  Widget _buildActiveAlertCard({
-    required Color borderColor,
-    required String tagText,
-    required Color tagColor,
-    required Color tagBgColor,
-    required String title,
-    required String time,
-    required String content,
-    required String primaryActionText,
-    required IconData primaryActionIcon,
-    required Color primaryActionColor,
-    VoidCallback? onPrimaryAction,
-    VoidCallback? onIgnore,
-  }) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: borderColor, width: 1.5),
-        boxShadow: [
-          BoxShadow(
-            color: borderColor.withValues(alpha: 0.1),
-            blurRadius: 8,
-            offset: const Offset(0, 3),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 6,
-                      vertical: 2,
-                    ),
-                    decoration: BoxDecoration(
-                      color: tagBgColor,
-                      borderRadius: BorderRadius.circular(4),
-                    ),
-                    child: Text(
-                      tagText,
-                      style: TextStyle(
-                        fontSize: 10,
-                        color: tagColor,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Container(
-                    width: 6,
-                    height: 6,
-                    decoration: const BoxDecoration(
-                      color: Colors.redAccent,
-                      shape: BoxShape.circle,
-                    ),
-                  ),
-                ],
-              ),
-              Text(
-                time,
-                style: const TextStyle(fontSize: 12, color: Colors.grey),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          Text(
-            title,
-            style: const TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.bold,
-              color: Colors.black87,
-            ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            content,
-            style: const TextStyle(
-              fontSize: 13,
-              color: Colors.black54,
-              height: 1.4,
-            ),
-          ),
-          const SizedBox(height: 16),
-          Row(
-            children: [
-              Expanded(
-                flex: 2,
-                child: ElevatedButton.icon(
-                  onPressed: onPrimaryAction,
-                  icon: Icon(primaryActionIcon, size: 16, color: Colors.white),
-                  label: Text(
-                    primaryActionText,
-                    style: const TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.white,
-                    ),
-                  ),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: primaryActionColor,
-                    elevation: 0,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    padding: const EdgeInsets.symmetric(vertical: 12),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                flex: 1,
-                child: OutlinedButton(
-                  onPressed: onIgnore,
-                  style: OutlinedButton.styleFrom(
-                    backgroundColor: const Color(0xFFF5F7FA),
-                    side: BorderSide.none,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    padding: const EdgeInsets.symmetric(vertical: 12),
-                  ),
-                  child: const Text(
-                    '忽略',
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: Colors.black54,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildHandledAlertCard({
-    required String tagText,
-    required String title,
-    required String time,
-    required String content,
-    required String handledText,
-  }) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.grey.shade200),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.03),
-            blurRadius: 8,
-            offset: const Offset(0, 3),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFF5F7FA),
-                  borderRadius: BorderRadius.circular(4),
-                ),
-                child: Text(
-                  tagText,
-                  style: const TextStyle(
-                    fontSize: 10,
-                    color: Colors.grey,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
-              Text(
-                time,
-                style: const TextStyle(fontSize: 12, color: Colors.grey),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          Text(
-            title,
-            style: const TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.bold,
-              color: Colors.black87,
-            ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            content,
-            style: const TextStyle(
-              fontSize: 13,
-              color: Colors.black54,
-              height: 1.4,
-            ),
-          ),
-          const SizedBox(height: 12),
-          Row(
-            children: [
-              const Icon(Icons.check_circle, size: 16, color: Colors.green),
-              const SizedBox(width: 6),
-              Expanded(
-                child: Text(
-                  handledText,
-                  style: const TextStyle(fontSize: 12, color: Colors.grey),
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _DismissibleAlert extends StatelessWidget {
-  final String alertId;
-  final VoidCallback onDismissed;
-  final Widget child;
-
-  const _DismissibleAlert({
-    required this.alertId,
-    required this.onDismissed,
-    required this.child,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Dismissible(
-      key: Key(alertId),
-      direction: DismissDirection.endToStart,
-      confirmDismiss: (_) async {
-        return true;
-      },
-      dismissThresholds: const {DismissDirection.endToStart: 0.3},
-      background: Container(
-        alignment: Alignment.centerRight,
-        padding: const EdgeInsets.only(right: 28),
-        decoration: BoxDecoration(
-          color: Colors.redAccent.withValues(alpha: 0.08),
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: const Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(Icons.delete_outline, color: Colors.redAccent, size: 20),
-            SizedBox(width: 4),
-            Text(
-              '忽略',
-              style: TextStyle(
-                color: Colors.redAccent,
-                fontSize: 13,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ],
-        ),
-      ),
-      onDismissed: (_) => onDismissed(),
-      child: child,
     );
   }
 }

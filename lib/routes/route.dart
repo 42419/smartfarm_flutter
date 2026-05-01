@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:smart_farm_flutter/pages/pageViews/alert_center_page.dart';
-import 'package:smart_farm_flutter/pages/sensor_history_page.dart';
+import '../pages/alerts/alert_center_page.dart';
+import '../pages/sensor_history/sensor_history_page.dart';
 import 'package:smart_farm_flutter/services/app_feedback.dart';
 
 import '../pages/login_page.dart';
@@ -8,7 +8,7 @@ import '../pages/main_page.dart';
 import '../pages/register_page.dart';
 import '../pages/forgot_password_page.dart';
 import '../pages/edit_profile_page.dart';
-import '../pages/ai_chat_page.dart';
+import '../pages/ai_chat/ai_chat_page.dart';
 
 Widget getRootWidget({String initialRoute = '/login'}) {
   return MaterialApp(
