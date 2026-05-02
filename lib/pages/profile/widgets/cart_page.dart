@@ -3,9 +3,14 @@ import 'package:flutter/material.dart';
 import '../../../../services/cart_service.dart';
 import '../../../../services/app_feedback.dart';
 
-class CartPage extends StatelessWidget {
+class CartPage extends StatefulWidget {
   const CartPage({super.key});
 
+  @override
+  State<CartPage> createState() => _CartPageState();
+}
+
+class _CartPageState extends State<CartPage> {
   @override
   Widget build(BuildContext context) {
     final cart = CartService.instance;
@@ -29,6 +34,7 @@ class CartPage extends StatelessWidget {
               onPressed: () {
                 cart.clear();
                 showAppToast('购物车已清空');
+                setState(() {});
               },
               child: Text('清空',
                   style: TextStyle(fontSize: 14, color: Theme.of(context).colorScheme.onSurfaceVariant)),
@@ -302,6 +308,7 @@ class CartPage extends StatelessWidget {
                     cart.clear();
                     Navigator.of(ctx).pop();
                     showAppToast('订单已确认，预计 3 天内发货');
+                    setState(() {});
                   },
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Theme.of(context).colorScheme.primary,

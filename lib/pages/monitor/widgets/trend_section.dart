@@ -135,7 +135,9 @@ color: Theme.of(context).colorScheme.surfaceContainerLow,
       spots: spots,
       lineColor: lineColor,
       height: 220,
-      yPadding: selectedMetricIndex == 3 ? 200 : 2,
+      minYRange: selectedMetricIndex == 3
+          ? 500.0
+          : (selectedMetricIndex == 0 ? 8.0 : 20.0),
       bottomTitleBuilder: (value, meta) {
         final index = value.toInt();
         final label = index >= 0 && index < points.length

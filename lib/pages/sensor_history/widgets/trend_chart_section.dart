@@ -84,39 +84,39 @@ class TrendChartSection extends StatelessWidget {
   }
 
   Widget _buildChart() {
-    final lineColor = metrics[selectedMetricIndex].color;
-    final column = metrics[selectedMetricIndex].column;
+    final metric = metrics[selectedMetricIndex];
+    final lineColor = metric.color;
+    final column = metric.column;
 
     final reversedRecords = records.reversed.toList();
-    List<FlSpot> spots = [];
+    final spots = <FlSpot>[];
+
     for (int i = 0; i < reversedRecords.length; i++) {
       final record = reversedRecords[i];
-      double value = 0;
+      final double? value = switch (column) {
+        'temperature' => record.temperature,
+        'humidity' => record.humidity,
+        'soil_moisture' => record.effectiveSoilMoisture,
+        'illumination' => record.illumination,
+        _ => null,
+      };
 
-      switch (column) {
-        case 'temperature':
-          value = record.temperature ?? 0;
-          break;
-        case 'humidity':
-          value = record.humidity ?? 0;
-          break;
-        case 'soil_moisture':
-          value = record.effectiveSoilMoisture;
-          break;
-        case 'illumination':
-          value = record.illumination ?? 0;
-          break;
-        default:
-          value = 0;
+      if (value != null) {
+        spots.add(FlSpot(i.toDouble(), value));
       }
-
-      spots.add(FlSpot(i.toDouble(), value));
     }
+
+    final minYRange = switch (column) {
+      'illumination' => 500.0,
+      'temperature' => 8.0,
+      _ => 20.0, // humidity / soil_moisture
+    };
 
     return LineChartWidget(
       spots: spots,
       lineColor: lineColor,
       showDots: true,
+      minYRange: minYRange,
       bottomTitleBuilder: (value, meta) {
         final index = value.toInt();
         if (index >= 0 && index < reversedRecords.length) {

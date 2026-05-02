@@ -9,6 +9,7 @@ class LineChartWidget extends StatelessWidget {
     this.showDots = false,
     this.height = 200,
     this.yPadding = 0,
+    this.minYRange = 0,
     this.bottomTitleBuilder,
   });
 
@@ -17,6 +18,7 @@ class LineChartWidget extends StatelessWidget {
   final bool showDots;
   final double height;
   final double yPadding;
+  final double minYRange;
   final Widget Function(double value, TitleMeta meta)? bottomTitleBuilder;
 
   @override
@@ -30,7 +32,17 @@ class LineChartWidget extends StatelessWidget {
 
     final minY = spots.map((e) => e.y).reduce((a, b) => a < b ? a : b);
     final maxY = spots.map((e) => e.y).reduce((a, b) => a > b ? a : b);
-    final padding = (maxY - minY) * 0.1 + yPadding;
+    final dataRange = maxY - minY;
+    final padding = dataRange * 0.1 + yPadding;
+
+    var chartMinY = minY - padding;
+    var chartMaxY = maxY + padding;
+
+    if (minYRange > 0 && (chartMaxY - chartMinY) < minYRange) {
+      final midY = (chartMinY + chartMaxY) / 2;
+      chartMinY = midY - minYRange / 2;
+      chartMaxY = midY + minYRange / 2;
+    }
 
     return SizedBox(
       height: height,
@@ -73,8 +85,8 @@ class LineChartWidget extends StatelessWidget {
           borderData: FlBorderData(show: false),
           minX: 0,
           maxX: (spots.length - 1).toDouble(),
-          minY: minY - padding,
-          maxY: maxY + padding,
+          minY: chartMinY,
+          maxY: chartMaxY,
           lineBarsData: [
             LineChartBarData(
               spots: spots,

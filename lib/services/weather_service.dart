@@ -48,24 +48,16 @@ class WeatherService {
     }));
   }
 
+  static const _cityAdcode = '410200';
+
   Future<void> fetch() async {
     try {
       final dio = Dio();
-      final ipResp = await dio.get(
-        'https://restapi.amap.com/v3/ip',
-        queryParameters: {'key': Config.amapAuthKey},
-      );
-      final adcode = ipResp.data['adcode']?.toString();
-      if (adcode == null || adcode.isEmpty) {
-        weatherText = '定位失败';
-        return;
-      }
-
       final weatherResp = await dio.get(
         'https://restapi.amap.com/v3/weather/weatherInfo',
         queryParameters: {
           'key': Config.amapAuthKey,
-          'city': adcode,
+          'city': _cityAdcode,
           'extensions': 'base',
         },
       );

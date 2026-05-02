@@ -251,7 +251,7 @@ class _AiChatPageState extends State<AiChatPage> {
       );
     }
   }
-
+  // 监听AI回复，解析事件流
   void _tryExecuteDeviceCommand(ChatMessage msg) {
     final content = msg.content;
     final match = RegExp(

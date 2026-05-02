@@ -38,18 +38,30 @@ ThemeData _buildTheme(Brightness brightness) {
 
   if (brightness == Brightness.light) {
     return base.copyWith(
-      scaffoldBackgroundColor: const Color(0xFFFAFAFA),
+      scaffoldBackgroundColor: const Color(0xFFF2F3F5),
       colorScheme: base.colorScheme.copyWith(
         surfaceTint: Colors.transparent,
         surface: Colors.white,
-        surfaceContainerLow: const Color(0xFFF8F8F8),
-        surfaceContainerHigh: const Color(0xFFF0F0F0),
-        surfaceContainerHighest: const Color(0xFFE8E8E8),
+        surfaceContainerLow: Colors.white,
+        surfaceContainerHigh: const Color(0xFFF0F3F5),
+        surfaceContainerHighest: const Color(0xFFE8ECF0),
+        outlineVariant: const Color(0xFFE2E5EA),
       ),
     );
   }
 
-  return base;
+  // Dark theme — override auto-generated M3 surfaces for better contrast
+  return base.copyWith(
+    scaffoldBackgroundColor: const Color(0xFF101216),
+    colorScheme: base.colorScheme.copyWith(
+      surfaceTint: Colors.transparent,
+      surface: const Color(0xFF1A1D27),
+      surfaceContainerLow: const Color(0xFF1E212F),
+      surfaceContainerHigh: const Color(0xFF282B3A),
+      surfaceContainerHighest: const Color(0xFF323548),
+      outlineVariant: const Color(0xFF2F3245),
+    ),
+  );
 }
 
 Map<String, Widget Function(BuildContext)> getRootRoutes() {
