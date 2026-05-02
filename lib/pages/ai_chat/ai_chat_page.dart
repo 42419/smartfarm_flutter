@@ -147,7 +147,6 @@ class _AiChatPageState extends State<AiChatPage> {
             _scrollToBottom();
             break;
           case CozeEventType.completed:
-            _saveAiMessage(event.content);
             _saveCozeConversationId();
             setState(() {
               _tryExecuteDeviceCommand(_messages[aiMsgIndex]);
@@ -155,11 +154,11 @@ class _AiChatPageState extends State<AiChatPage> {
               _isAiThinking = false;
               _reasoningMsgIndex = null;
             });
+            _saveAiMessage(_messages[aiMsgIndex].content);
             _scrollToBottom();
             break;
           case CozeEventType.done:
             if (_isAiThinking) {
-              _saveAiMessage(_messages[aiMsgIndex].content);
               _saveCozeConversationId();
               setState(() {
                 _tryExecuteDeviceCommand(_messages[aiMsgIndex]);
@@ -167,6 +166,7 @@ class _AiChatPageState extends State<AiChatPage> {
                 _isAiThinking = false;
                 _reasoningMsgIndex = null;
               });
+              _saveAiMessage(_messages[aiMsgIndex].content);
             }
             break;
           case CozeEventType.error:
@@ -193,7 +193,6 @@ class _AiChatPageState extends State<AiChatPage> {
       onDone: () {
         if (!mounted) return;
         if (_isAiThinking) {
-          _saveAiMessage(_messages[aiMsgIndex].content);
           _saveCozeConversationId();
           setState(() {
             _tryExecuteDeviceCommand(_messages[aiMsgIndex]);
@@ -201,6 +200,7 @@ class _AiChatPageState extends State<AiChatPage> {
             _isAiThinking = false;
             _reasoningMsgIndex = null;
           });
+          _saveAiMessage(_messages[aiMsgIndex].content);
         }
       },
     );
@@ -252,7 +252,7 @@ class _AiChatPageState extends State<AiChatPage> {
     }
   }
   // 监听AI回复，解析事件流
-  void _tryExecuteDeviceCommand(ChatMessage msg) {
+  void _tryExecuteDeviceCommand(ChatMessage msg, {bool executeDevice = true}) {
     final content = msg.content;
     final match = RegExp(
       r'^(\{.*?"action"\s*:\s*"device_control".*?\})\s*',
@@ -274,7 +274,7 @@ class _AiChatPageState extends State<AiChatPage> {
       }
       final switchName = command == 'on' ? 'ON' : 'OFF';
 
-      if (commandName != null) {
+      if (commandName != null && executeDevice) {
         DeviceManager.instance.controlDevice(commandName, switchName);
       }
 
@@ -301,7 +301,7 @@ class _AiChatPageState extends State<AiChatPage> {
         isComplete: true,
       );
       if (msg.role == 'assistant') {
-        _tryExecuteDeviceCommand(chatMsg);
+        _tryExecuteDeviceCommand(chatMsg, executeDevice: false);
       }
       _messages.add(chatMsg);
     }
