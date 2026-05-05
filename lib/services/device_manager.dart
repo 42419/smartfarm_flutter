@@ -44,6 +44,7 @@ class DeviceManager extends ChangeNotifier {
   bool lightStatus = false; // 补光设备#001
   bool pump1Status = false; // 灌溉泵#001
   bool pump2Status = false; // 灌溉泵#002
+  bool silentMode = false;
   final Map<String, _PendingDeviceCommand> _pendingCommands = {};
   final Map<String, Timer> _pendingCommandTimers = {};
 
@@ -260,13 +261,13 @@ class DeviceManager extends ChangeNotifier {
     if (nextStatus == pending.expectedStatus) {
       onAccept(nextStatus);
       _clearPendingCommand(commandName);
-      showAppToast('${pending.deviceLabel}操作成功');
+      if (!silentMode) showAppToast('${pending.deviceLabel}操作成功');
       return;
     }
 
     onAccept(nextStatus);
     _clearPendingCommand(commandName);
-    showAppToast('${pending.deviceLabel}操作失败');
+    if (!silentMode) showAppToast('${pending.deviceLabel}操作失败');
   }
 
   void _failPendingCommand(
@@ -288,7 +289,7 @@ class DeviceManager extends ChangeNotifier {
     }
 
     _clearPendingCommand(commandName);
-    showAppToast('${pending.deviceLabel}操作失败');
+    if (!silentMode) showAppToast('${pending.deviceLabel}操作失败');
   }
 
   void _clearPendingCommand(String commandName) {

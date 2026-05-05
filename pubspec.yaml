@@ -41,6 +41,8 @@ dependencies:
   crypto: ^3.0.7
   shared_preferences: ^2.5.0
   flutter_markdown_plus: ^1.0.7
+  camera: ^0.11.1
+  permission_handler: ^11.4.0
 
 dev_dependencies:
   flutter_test:
