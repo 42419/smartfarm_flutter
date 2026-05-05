@@ -256,12 +256,25 @@ class _AlertCenterPageState extends State<AlertCenterPage> {
 
   String _formatTime(DateTime time) {
     final now = DateTime.now();
-    if (time.year == now.year &&
-        time.month == now.month &&
-        time.day == now.day) {
-      return '${time.hour.toString().padLeft(2, '0')}:${time.minute.toString().padLeft(2, '0')}';
+    final today = DateTime(now.year, now.month, now.day);
+    final yesterday = today.subtract(const Duration(days: 1));
+    final ts = '${time.hour.toString().padLeft(2, '0')}:${time.minute.toString().padLeft(2, '0')}';
+    if (time.isAfter(today) || time.isAtSameMomentAs(today)) {
+      return ts;
     }
-    return '昨天 ${time.hour.toString().padLeft(2, '0')}:${time.minute.toString().padLeft(2, '0')}';
+    if (time.isAfter(yesterday) || time.isAtSameMomentAs(yesterday)) {
+      return '昨天 $ts';
+    }
+    return '${time.month.toString().padLeft(2, '0')}-${time.day.toString().padLeft(2, '0')} $ts';
+  }
+
+  String _dateGroupLabel(DateTime time) {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final yesterday = today.subtract(const Duration(days: 1));
+    if (time.isAfter(today) || time.isAtSameMomentAs(today)) return '今天';
+    if (time.isAfter(yesterday) || time.isAtSameMomentAs(yesterday)) return '昨天';
+    return '更早';
   }
 
   int get _unhandledCount {
@@ -377,42 +390,75 @@ class _AlertCenterPageState extends State<AlertCenterPage> {
             ),
             const SizedBox(height: 20),
             if (_selectedFilterIndex == 0 || _selectedFilterIndex == 1) ...[
-              Text(
-                '今天',
-                style: TextStyle(
-                  fontSize: 14,
-                  color: Theme.of(context).colorScheme.onSurfaceVariant,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              const SizedBox(height: 12),
-              ...activeAlerts.map((a) => Padding(
-                    padding: const EdgeInsets.only(bottom: 12),
-                    child: DismissibleAlert(
-                      alertId: a.id,
-                      onDismissed: () => _dismissAlert(a.id),
-                      child: ActiveAlertCard(
-                        alert: a,
-                        borderColor: _borderColor(a.borderColorKey),
-                        tagColor: _tagColor(a.borderColorKey),
-                        tagBgColor: _tagBgColor(a.borderColorKey),
-                        time: _formatTime(a.time),
-                        onPrimaryAction: _getAction(a),
-                        onIgnore: () => _dismissAlert(a.id),
+              Builder(builder: (context) {
+                final today = activeAlerts
+                    .where((a) => _dateGroupLabel(a.time) == '今天')
+                    .toList();
+                final yesterday = activeAlerts
+                    .where((a) => _dateGroupLabel(a.time) == '昨天')
+                    .toList();
+                final earlier = activeAlerts
+                    .where((a) => _dateGroupLabel(a.time) == '更早')
+                    .toList();
+
+                final groups = <MapEntry<String, List<AlertData>>>[
+                  if (today.isNotEmpty) MapEntry('今天', today),
+                  if (yesterday.isNotEmpty) MapEntry('昨天', yesterday),
+                  if (earlier.isNotEmpty) MapEntry('更早', earlier),
+                ];
+
+                if (groups.isEmpty) {
+                  return Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 20),
+                    child: Center(
+                      child: Text(
+                        '暂无未处理告警',
+                        style: TextStyle(
+                            color: Theme.of(context)
+                                .colorScheme
+                                .onSurfaceVariant),
                       ),
                     ),
-                  )),
-              if (activeAlerts.isEmpty)
-                Padding(
-                  padding: EdgeInsets.symmetric(vertical: 20),
-                  child: Center(
-                    child: Text(
-                      '暂无未处理告警',
-                      style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant),
-                    ),
-                  ),
-                ),
-              const SizedBox(height: 24),
+                  );
+                }
+
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    for (final group in groups) ...[
+                      Text(
+                        group.key,
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: Theme.of(context)
+                              .colorScheme
+                              .onSurfaceVariant,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      ...group.value.map((a) => Padding(
+                            padding: const EdgeInsets.only(bottom: 12),
+                            child: DismissibleAlert(
+                              alertId: a.id,
+                              onDismissed: () => _dismissAlert(a.id),
+                              child: ActiveAlertCard(
+                                alert: a,
+                                borderColor:
+                                    _borderColor(a.borderColorKey),
+                                tagColor: _tagColor(a.borderColorKey),
+                                tagBgColor: _tagBgColor(a.borderColorKey),
+                                time: _formatTime(a.time),
+                                onPrimaryAction: _getAction(a),
+                                onIgnore: () => _dismissAlert(a.id),
+                              ),
+                            ),
+                          )),
+                      const SizedBox(height: 24),
+                    ],
+                  ],
+                );
+              }),
             ],
             if (_selectedFilterIndex == 0 || _selectedFilterIndex == 2) ...[
               Text(
