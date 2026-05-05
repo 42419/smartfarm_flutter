@@ -150,6 +150,7 @@ class _AiChatPageState extends State<AiChatPage> {
             _saveCozeConversationId();
             setState(() {
               _tryExecuteDeviceCommand(_messages[aiMsgIndex]);
+              _tryExecuteSensorQuery(_messages[aiMsgIndex]);
               _messages[aiMsgIndex].isComplete = true;
               _isAiThinking = false;
               _reasoningMsgIndex = null;
@@ -162,6 +163,7 @@ class _AiChatPageState extends State<AiChatPage> {
               _saveCozeConversationId();
               setState(() {
                 _tryExecuteDeviceCommand(_messages[aiMsgIndex]);
+                _tryExecuteSensorQuery(_messages[aiMsgIndex]);
                 _messages[aiMsgIndex].isComplete = true;
                 _isAiThinking = false;
                 _reasoningMsgIndex = null;
@@ -196,6 +198,7 @@ class _AiChatPageState extends State<AiChatPage> {
           _saveCozeConversationId();
           setState(() {
             _tryExecuteDeviceCommand(_messages[aiMsgIndex]);
+            _tryExecuteSensorQuery(_messages[aiMsgIndex]);
             _messages[aiMsgIndex].isComplete = true;
             _isAiThinking = false;
             _reasoningMsgIndex = null;
@@ -280,6 +283,68 @@ class _AiChatPageState extends State<AiChatPage> {
 
       msg.content = content.substring(match.end).trim();
     } catch (_) {}
+  }
+
+  void _tryExecuteSensorQuery(ChatMessage msg) {
+    final content = msg.content;
+    final match = RegExp(
+      r'^(\{.*?"action"\s*:\s*"sensor_query".*?\})\s*',
+    ).firstMatch(content);
+    if (match == null) return;
+
+    try {
+      final json = jsonDecode(match.group(1)!) as Map<String, dynamic>;
+      if (json['action'] != 'sensor_query') return;
+
+      final sensors = (json['sensors'] as List?)
+              ?.map((e) => e.toString())
+              .toList() ??
+          [];
+
+      final dm = DeviceManager.instance;
+      final result = StringBuffer();
+      for (final s in sensors) {
+        switch (s) {
+          case 'temperature':
+            final v = dm.temperature;
+            result.writeln(v == '--'
+                ? '🌡 温度: 暂无数据'
+                : '🌡 温度: $v°C');
+          case 'humidity':
+            final v = dm.humidity;
+            result.writeln(v == '--'
+                ? ' 空气湿度: 暂无数据'
+                : ' 空气湿度: $v%');
+          case 'light_intensity':
+            final v = dm.illumination;
+            result.writeln(v == '--'
+                ? ' 光照强度: 暂无数据'
+                : ' 光照强度: $v lux');
+          case 'soil_moisture':
+            final t = double.tryParse(dm.temperature);
+            final h = double.tryParse(dm.humidity);
+            if (t != null && h != null) {
+              final soil =
+                  (75 - (t - 22) * 2 + (h - 60) * 0.5).clamp(10, 95);
+              result.writeln(' 土壤湿度: ${soil.toStringAsFixed(1)}%');
+            } else {
+              result.writeln(' 土壤湿度: 暂无数据');
+            }
+          default:
+            result.writeln(' $s: 暂不支持');
+        }
+      }
+
+      final afterJson = content.substring(match.end);
+      if (afterJson.trim().isNotEmpty) {
+        result.writeln();
+        result.write(afterJson.trim());
+      }
+
+      msg.content = result.toString().trim();
+    } catch (_) {
+      msg.content = content.substring(match.end).trim();
+    }
   }
 
   Future<void> _loadConversation(AiConversation conv) async {

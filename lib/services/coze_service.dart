@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'package:dio/dio.dart';
 
 import '../config/config.dart';
+import 'device_manager.dart';
 
 enum CozeEventType { delta, reasoning, completed, done, error, deviceControl }
 
@@ -74,6 +75,11 @@ class CozeService {
     final recentHistory = _chatHistory.length > _maxHistoryItems
         ? _chatHistory.sublist(_chatHistory.length - _maxHistoryItems)
         : _chatHistory.toList();
+
+    final sensorCtx = _buildSensorContext();
+    if (sensorCtx != null) {
+      recentHistory.insert(0, sensorCtx);
+    }
 
     final body = <String, dynamic>{
       'bot_id': Config.cozeBotId,
@@ -194,6 +200,23 @@ class CozeService {
         controller.close();
       }
     }
+  }
+
+  Map<String, dynamic>? _buildSensorContext() {
+    final dm = DeviceManager.instance;
+    final parts = <String>[];
+    if (dm.temperature != '--') parts.add('温度${dm.temperature}°C');
+    if (dm.humidity != '--') parts.add('空气湿度${dm.humidity}%');
+    if (dm.illumination != '--') parts.add('光照强度${dm.illumination}lux');
+    parts.add('通风设备:${dm.motorStatus ? "开启" : "关闭"}');
+    parts.add('补光设备:${dm.lightStatus ? "开启" : "关闭"}');
+    if (parts.length <= 2) return null;
+    return {
+      'content': '[系统上下文] 当前温室环境数据: ${parts.join("，")}。注意：未列出的传感器表示数据暂未到达，不代表故障，请勿据此判断传感器异常。请基于以上实时数据回答用户问题。',
+      'content_type': 'text',
+      'role': 'assistant',
+      'type': 'answer',
+    };
   }
 
   String _extractError(DioException e) {
