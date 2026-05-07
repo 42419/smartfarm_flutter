@@ -4,6 +4,7 @@ import 'package:camera/camera.dart';
 import 'package:permission_handler/permission_handler.dart';
 import '../../services/app_feedback.dart';
 import '../../services/device_manager.dart';
+import '../../utils/responsive.dart';
 import 'widgets/device_card.dart';
 
 class DeviceControlPage extends StatefulWidget {
@@ -16,7 +17,7 @@ class DeviceControlPage extends StatefulWidget {
 class _DeviceControlPageState extends State<DeviceControlPage>
     with AutomaticKeepAliveClientMixin {
   int _selectedTabIndex = 0;
-  final List<String> _tabs = ['全部', '灌溉设备', '通风设备', '补光设备', '水肥设备'];
+  final List<String> _tabs = ['全部', '通风设备', '补光设备', '水肥设备', '灌溉设备'];
 
   @override
   bool get wantKeepAlive => true;
@@ -177,8 +178,7 @@ class _DeviceControlPageState extends State<DeviceControlPage>
                     left: offset.dx * (1 - t),
                     top: offset.dy * (1 - t),
                     width: size.width + (screenSize.width - size.width) * t,
-                    height:
-                        size.height + (screenSize.height - size.height) * t,
+                    height: size.height + (screenSize.height - size.height) * t,
                     child: Container(color: Colors.black),
                   ),
                   if (!isReverse)
@@ -262,8 +262,9 @@ class _DeviceControlPageState extends State<DeviceControlPage>
                 return Container(
                   decoration: BoxDecoration(
                     color: Theme.of(context).colorScheme.surfaceContainerLow,
-                    borderRadius:
-                        const BorderRadius.vertical(top: Radius.circular(20)),
+                    borderRadius: const BorderRadius.vertical(
+                      top: Radius.circular(20),
+                    ),
                   ),
                   child: ListView(
                     controller: scrollController,
@@ -288,19 +289,24 @@ class _DeviceControlPageState extends State<DeviceControlPage>
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  const Text('自动控制',
-                                      style: TextStyle(
-                                          fontWeight: FontWeight.w600,
-                                          fontSize: 16)),
+                                  const Text(
+                                    '自动控制',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.w600,
+                                      fontSize: 16,
+                                    ),
+                                  ),
                                   Text(
-                                      _autoControlEnabled
-                                          ? '已开启，根据环境自动调节设备'
-                                          : '已关闭',
-                                      style: TextStyle(
-                                          fontSize: 13,
-                                          color: Theme.of(context)
-                                              .colorScheme
-                                              .onSurfaceVariant)),
+                                    _autoControlEnabled
+                                        ? '已开启，根据环境自动调节设备'
+                                        : '已关闭',
+                                    style: TextStyle(
+                                      fontSize: 13,
+                                      color: Theme.of(
+                                        context,
+                                      ).colorScheme.onSurfaceVariant,
+                                    ),
+                                  ),
                                 ],
                               ),
                             ),
@@ -412,29 +418,42 @@ class _DeviceControlPageState extends State<DeviceControlPage>
         children: [
           Row(
             children: [
-              Icon(icon, size: 18,
-                  color: enabled ? Colors.blueAccent : Colors.grey),
+              Icon(
+                icon,
+                size: 18,
+                color: enabled ? Colors.blueAccent : Colors.grey,
+              ),
               const SizedBox(width: 8),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(label,
-                        style: TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w600,
-                            color: enabled ? cs.onSurface : Colors.grey)),
-                    Text(subtitle,
-                        style: TextStyle(
-                            fontSize: 11, color: cs.onSurfaceVariant)),
+                    Text(
+                      label,
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: enabled ? cs.onSurface : Colors.grey,
+                      ),
+                    ),
+                    Text(
+                      subtitle,
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: cs.onSurfaceVariant,
+                      ),
+                    ),
                   ],
                 ),
               ),
-              Text('${value.toInt()} $unit',
-                  style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                      color: enabled ? Colors.blueAccent : Colors.grey)),
+              Text(
+                '${value.toInt()} $unit',
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  color: enabled ? Colors.blueAccent : Colors.grey,
+                ),
+              ),
               Switch(
                 value: enabled,
                 onChanged: onToggle,
@@ -467,24 +486,23 @@ class _DeviceControlPageState extends State<DeviceControlPage>
   Widget build(BuildContext context) {
     super.build(context);
     final dm = DeviceManager.instance;
-    bool fan1 = dm.motorStatus;
-    bool light2 = dm.lightStatus;
-    final currentTemp =
-        dm.temperature == '--' ? '--℃' : '${dm.temperature}℃';
-    final currentIllumination =
-        dm.illumination == '--' ? '-- lux' : '${dm.illumination} lux';
+    final isLarge = Responsive.isLargeScreen(context);
 
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
-        title: const Text('设备控制',
-            style: TextStyle(fontWeight: FontWeight.bold)),
+        title: const Text(
+          '设备控制',
+          style: TextStyle(fontWeight: FontWeight.bold),
+        ),
         backgroundColor: Theme.of(context).colorScheme.surface,
         elevation: 0,
         actions: [
           IconButton(
             icon: Icon(
-              _autoControlEnabled ? Icons.auto_awesome : Icons.auto_awesome_outlined,
+              _autoControlEnabled
+                  ? Icons.auto_awesome
+                  : Icons.auto_awesome_outlined,
               color: _autoControlEnabled ? Colors.blueAccent : null,
             ),
             tooltip: '自动控制',
@@ -492,325 +510,381 @@ class _DeviceControlPageState extends State<DeviceControlPage>
           ),
         ],
       ),
-      body: Column(
+      body: isLarge
+          ? _buildLandscapeBody(context, dm)
+          : _buildMobileBody(context, dm),
+    );
+  }
+
+  Widget _buildLandscapeBody(BuildContext context, DeviceManager dm) {
+    bool fan1 = dm.motorStatus;
+    bool light2 = dm.lightStatus;
+    final currentTemp = dm.temperature == '--' ? '--℃' : '${dm.temperature}℃';
+    final currentIllumination = dm.illumination == '--'
+        ? '-- lux'
+        : '${dm.illumination} lux';
+
+    return Padding(
+      padding: const EdgeInsets.all(16),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Container(
-            color: Theme.of(context).colorScheme.surface,
-            padding:
-                const EdgeInsets.only(left: 16, right: 16, bottom: 12),
-            child: SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: Row(
-                children: List.generate(_tabs.length, (index) {
-                  bool isSelected = _selectedTabIndex == index;
-                  return Padding(
-                    padding: const EdgeInsets.only(right: 10),
-                    child: ChoiceChip(
-                      label: Text(_tabs[index]),
-                      selected: isSelected,
-                      onSelected: (bool selected) {
-                        setState(() => _selectedTabIndex = index);
-                      },
-                      selectedColor: Colors.blueAccent,
-                      backgroundColor: Theme.of(context).colorScheme.surfaceContainerHighest,
-                      labelStyle: TextStyle(
-                        color: isSelected
-                            ? Colors.white
-                            : Theme.of(context)
-                                .colorScheme
-                                .onSurfaceVariant,
-                        fontWeight: isSelected
-                            ? FontWeight.bold
-                            : FontWeight.normal,
-                      ),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                      showCheckmark: false,
-                      side: BorderSide.none,
-                    ),
-                  );
-                }),
-              ),
-            ),
-          ),
-          Stack(
-            children: [
-              GestureDetector(
-                onTap: _isCameraActive ? null : _initCamera,
-                child: Container(
-                  key: _cameraKey,
-                  width: double.infinity,
-                  height: 230,
-                  decoration: const BoxDecoration(
-                    color: Color(0xFF1A1A2E),
-                  ),
-                  child: _isCameraActive && _cameraController != null
-                      ? CameraPreview(_cameraController!)
-                      : Center(
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(
-                                Icons.videocam_rounded,
-                                size: 56,
-                                color: Colors.white.withValues(alpha: 0.35),
-                              ),
-                              const SizedBox(height: 12),
-                              Text(
-                                '视频监控',
-                                style: TextStyle(
-                                  color: Colors.white.withValues(alpha: 0.6),
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.w500,
-                                ),
-                              ),
-                              const SizedBox(height: 6),
-                              Text(
-                                '点击开启实时监控',
-                                style: TextStyle(
-                                  color: Colors.white.withValues(alpha: 0.3),
-                                  fontSize: 13,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                ),
-              ),
-              if (_isCameraLoading)
-                const Positioned.fill(
-                  child: Center(
-                    child: SizedBox(
-                      width: 36,
-                      height: 36,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2.5,
-                        color: Colors.white,
-                      ),
-                    ),
-                  ),
-                ),
-              if (_isCameraActive) ...[
-                Positioned(
-                  top: 8,
-                  right: 8,
-                  child: Container(
-                    decoration: BoxDecoration(
-                      color: Colors.black12,
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                    child: IconButton(
-                      icon: const Icon(Icons.close, color: Colors.white, size: 24),
-                      onPressed: _toggleCamera,
-                      padding: const EdgeInsets.all(4),
-                      constraints: const BoxConstraints(),
-                    ),
-                  ),
-                ),
-                Positioned(
-                  bottom: 8,
-                  left: 8,
-                  right: 8,
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        _currentTime,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 13,
-                          fontFamily: 'monospace',
-                        ),
-                      ),
-                      IconButton(
-                        icon: const Icon(Icons.fullscreen, color: Colors.white, size: 24),
-                        onPressed: _goFullscreen,
-                        padding: const EdgeInsets.all(4),
-                        constraints: const BoxConstraints(),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ],
-          ),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
-            child: Row(
-              children: [
-                Expanded(
-                  child: QuickOpButton(
-                    title: '一键灌溉',
-                    icon: Icons.water_drop,
-                    color: Colors.blueAccent,
-                    onTap: () {
-                      final anyOff = !pump1 || !pump2;
-                      setState(() {
-                        pump1 = anyOff;
-                        pump2 = anyOff;
-                      });
-                      showAppToast(anyOff ? '灌溉泵已全部开启' : '灌溉泵已全部关闭');
-                    },
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: QuickOpButton(
-                    title: '一键通风',
-                    icon: Icons.air,
-                    color: Colors.green,
-                    onTap: () {
-                      final target = !fan1;
-                      dm.controlDevice(
-                          'motor_control', target ? 'ON' : 'OFF');
-                    },
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: QuickOpButton(
-                    title: '一键补光',
-                    icon: Icons.wb_sunny,
-                    color: Colors.orangeAccent,
-                    onTap: () {
-                      final target = !light2;
-                      dm.controlDevice(
-                          'light_control', target ? 'ON' : 'OFF');
-                    },
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 12),
           Expanded(
-            child: ListView(
-              padding: const EdgeInsets.only(
-                  left: 16, right: 16, top: 10, bottom: 20),
+            flex: 5,
+            child: Column(
               children: [
-                if (_selectedTabIndex == 0 || _selectedTabIndex == 1) ...[
-                  const SectionHeader(
-                    title: '灌溉设备',
-                    icon: Icons.water_drop_outlined,
-                    color: Colors.blueAccent,
-                  ),
-                  DeviceCard(
-                    title: '灌溉泵 #001',
-                    location: '1号大棚',
-                    runtimeDay: '28',
-                    attributes: [
-                      {'label': '流量',
-                       'value': pump1 ? '120 L/min' : '0 L/min'},
-                      {'label': '压力',
-                       'value': pump1 ? '0.32 Mpa' : '0 Mpa'},
-                    ],
-                    isOn: pump1,
-                    onChanged: (val) => setState(() => pump1 = val),
-                    icons: [Icons.access_time, Icons.monitor],
-                  ),
-                  const SizedBox(height: 12),
-                  DeviceCard(
-                    title: '灌溉泵 #002',
-                    location: '2号大棚',
-                    runtimeDay: '32',
-                    attributes: [
-                      {'label': '流量',
-                       'value': pump2 ? '120 L/min' : '0 L/min'},
-                      {'label': '压力',
-                       'value': pump2 ? '0.32 Mpa' : '0 Mpa'},
-                    ],
-                    isOn: pump2,
-                    onChanged: (val) => setState(() => pump2 = val),
-                    icons: [Icons.access_time, Icons.monitor],
-                  ),
-                  const SizedBox(height: 24),
-                ],
-                if (_selectedTabIndex == 0 || _selectedTabIndex == 2) ...[
-                  const SectionHeader(
-                    title: '通风设备',
-                    icon: Icons.air,
-                    color: Colors.green,
-                  ),
-                  DeviceCard(
-                    title: '轴流风机 #001',
-                    location: '1号大棚',
-                    runtimeDay: '45',
-                    attributes: [
-                      {'label': '风速', 'value': fan1 ? '2 级' : '0 级'},
-                      {'label': '当前温度', 'value': currentTemp},
-                    ],
-                    isOn: fan1,
-                    onChanged: (val) {
-                      dm.controlDevice(
-                          'motor_control', val ? 'ON' : 'OFF');
-                    },
-                    icons: [Icons.access_time, Icons.monitor],
-                  ),
-                  const SizedBox(height: 12),
-                  DeviceCard(
-                    title: '电动天窗 #003',
-                    location: '3号大棚',
-                    runtimeDay: '18',
-                    statusTextOn: '部分开启',
-                    attributes: [
-                      {'label': '开度',
-                       'value': window3 ? '45%' : '0%'},
-                      {'label': '当前温度', 'value': currentTemp},
-                    ],
-                    isOn: window3,
-                    onChanged: (val) => setState(() => window3 = val),
-                    icons: [Icons.access_time, Icons.tune],
-                  ),
-                  const SizedBox(height: 24),
-                ],
-                if (_selectedTabIndex == 0 || _selectedTabIndex == 3) ...[
-                  const SectionHeader(
-                    title: '补光设备',
-                    icon: Icons.wb_sunny_outlined,
-                    color: Colors.orangeAccent,
-                  ),
-                  DeviceCard(
-                    title: 'LED补光灯 #001',
-                    location: '1号大棚',
-                    runtimeDay: '22',
-                    attributes: [
-                      {'label': '亮度',
-                       'value': light2 ? '75%' : '0%'},
-                      {'label': '环境光照', 'value': currentIllumination},
-                    ],
-                    isOn: light2,
-                    onChanged: (val) {
-                      dm.controlDevice(
-                          'light_control', val ? 'ON' : 'OFF');
-                    },
-                    icons: [Icons.access_time],
-                  ),
-                  const SizedBox(height: 20),
-                ],
-                if (_selectedTabIndex == 4) ...[
-                  Padding(
-                    padding: EdgeInsets.only(top: 50),
-                    child: Center(
-                      child: Text('暂无相关设备',
-                          style: TextStyle(
-                              color: Theme.of(context)
-                                  .colorScheme
-                                  .onSurfaceVariant)),
-                    ),
-                  ),
-                ],
+                _buildTabChips(context),
+                const SizedBox(height: 12),
+                Expanded(
+                  child: _buildCameraArea(context),
+                ),
+                const SizedBox(height: 12),
+                _buildQuickOps(context, dm, fan1, light2),
               ],
+            ),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            flex: 5,
+            child: _buildDeviceList(
+              context,
+              dm,
+              fan1,
+              light2,
+              currentTemp,
+              currentIllumination,
             ),
           ),
         ],
       ),
     );
   }
+
+  Widget _buildMobileBody(BuildContext context, DeviceManager dm) {
+    bool fan1 = dm.motorStatus;
+    bool light2 = dm.lightStatus;
+    final currentTemp = dm.temperature == '--' ? '--℃' : '${dm.temperature}℃';
+    final currentIllumination = dm.illumination == '--'
+        ? '-- lux'
+        : '${dm.illumination} lux';
+
+    return Column(
+      children: [
+        _buildTabChips(context),
+        _buildCameraArea(context),
+        _buildQuickOps(context, dm, fan1, light2),
+        const SizedBox(height: 12),
+        Expanded(
+          child: _buildDeviceList(
+            context,
+            dm,
+            fan1,
+            light2,
+            currentTemp,
+            currentIllumination,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildTabChips(BuildContext context) {
+    return Container(
+      color: Theme.of(context).colorScheme.surface,
+      padding: const EdgeInsets.only(left: 16, right: 16, bottom: 12),
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: Row(
+          children: List.generate(_tabs.length, (index) {
+            bool isSelected = _selectedTabIndex == index;
+            return Padding(
+              padding: const EdgeInsets.only(right: 10),
+              child: ChoiceChip(
+                label: Text(_tabs[index]),
+                selected: isSelected,
+                onSelected: (bool selected) {
+                  setState(() => _selectedTabIndex = index);
+                },
+                selectedColor: Colors.blueAccent,
+                backgroundColor: Theme.of(context)
+                    .colorScheme
+                    .surfaceContainerHighest,
+                labelStyle: TextStyle(
+                  color: isSelected
+                      ? Colors.white
+                      : Theme.of(context).colorScheme.onSurfaceVariant,
+                  fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                showCheckmark: false,
+                side: BorderSide.none,
+              ),
+            );
+          }),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCameraArea(BuildContext context) {
+    return Stack(
+      children: [
+        GestureDetector(
+          onTap: _isCameraActive ? null : _initCamera,
+          child: Container(
+            key: _cameraKey,
+            width: double.infinity,
+            height: 230,
+            decoration: const BoxDecoration(color: Color(0xFF1A1A2E)),
+            child: _isCameraActive && _cameraController != null
+                ? CameraPreview(_cameraController!)
+                : Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.videocam_rounded,
+                            size: 56,
+                            color: Colors.white.withValues(alpha: 0.35)),
+                        const SizedBox(height: 12),
+                        Text('视频监控',
+                            style: TextStyle(
+                                color:
+                                    Colors.white.withValues(alpha: 0.6),
+                                fontSize: 16,
+                                fontWeight: FontWeight.w500)),
+                        const SizedBox(height: 6),
+                        Text('点击开启实时监控',
+                            style: TextStyle(
+                                color:
+                                    Colors.white.withValues(alpha: 0.3),
+                                fontSize: 13)),
+                      ],
+                    ),
+                  ),
+          ),
+        ),
+        if (_isCameraLoading)
+          const Positioned.fill(
+            child: Center(
+              child: SizedBox(
+                  width: 36,
+                  height: 36,
+                  child: CircularProgressIndicator(
+                      strokeWidth: 2.5, color: Colors.white)),
+            ),
+          ),
+        if (_isCameraActive) ...[
+          Positioned(
+            top: 8,
+            right: 8,
+            child: Container(
+              decoration: BoxDecoration(
+                color: Colors.black12,
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: IconButton(
+                icon: const Icon(Icons.close, color: Colors.white, size: 24),
+                onPressed: _toggleCamera,
+                padding: const EdgeInsets.all(4),
+                constraints: const BoxConstraints(),
+              ),
+            ),
+          ),
+          Positioned(
+            bottom: 8,
+            left: 8,
+            right: 8,
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(_currentTime,
+                    style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 13,
+                        fontFamily: 'monospace')),
+                IconButton(
+                  icon: const Icon(Icons.fullscreen,
+                      color: Colors.white, size: 24),
+                  onPressed: _goFullscreen,
+                  padding: const EdgeInsets.all(4),
+                  constraints: const BoxConstraints(),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+
+  Widget _buildQuickOps(
+      BuildContext context, DeviceManager dm, bool fan1, bool light2) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(0, 0, 0, 0),
+      child: Row(
+        children: [
+          Expanded(
+            child: QuickOpButton(
+              title: '一键通风',
+              icon: Icons.air,
+              color: Colors.green,
+              onTap: () {
+                final target = !fan1;
+                dm.controlDevice('motor_control', target ? 'ON' : 'OFF');
+              },
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: QuickOpButton(
+              title: '一键补光',
+              icon: Icons.wb_sunny,
+              color: Colors.orangeAccent,
+              onTap: () {
+                final target = !light2;
+                dm.controlDevice('light_control', target ? 'ON' : 'OFF');
+              },
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: QuickOpButton(
+              title: '一键灌溉',
+              icon: Icons.water_drop,
+              color: Colors.blueAccent,
+              onTap: () {
+                final anyOff = !pump1 || !pump2;
+                setState(() {
+                  pump1 = anyOff;
+                  pump2 = anyOff;
+                });
+                showAppToast(anyOff ? '灌溉泵已全部开启' : '灌溉泵已全部关闭');
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDeviceList(BuildContext context, DeviceManager dm, bool fan1,
+      bool light2, String currentTemp, String currentIllumination) {
+    return ListView(
+      padding: const EdgeInsets.only(left: 0, right: 0, top: 0, bottom: 20),
+      children: [
+        if (_selectedTabIndex == 0 || _selectedTabIndex == 1) ...[
+          const SectionHeader(
+            title: '通风设备',
+            icon: Icons.air,
+            color: Colors.green,
+          ),
+          DeviceCard(
+            title: '轴流风机 #001',
+            location: '1号大棚',
+            runtimeDay: '45',
+            attributes: [
+              {'label': '风速', 'value': fan1 ? '2 级' : '0 级'},
+              {'label': '当前温度', 'value': currentTemp},
+            ],
+            isOn: fan1,
+            onChanged: (val) {
+              dm.controlDevice('motor_control', val ? 'ON' : 'OFF');
+            },
+            icons: [Icons.access_time, Icons.monitor],
+          ),
+          const SizedBox(height: 12),
+          DeviceCard(
+            title: '电动天窗 #003',
+            location: '3号大棚',
+            runtimeDay: '18',
+            statusTextOn: '部分开启',
+            attributes: [
+              {'label': '开度', 'value': window3 ? '45%' : '0%'},
+              {'label': '当前温度', 'value': currentTemp},
+            ],
+            isOn: window3,
+            onChanged: (val) => setState(() => window3 = val),
+            icons: [Icons.access_time, Icons.tune],
+          ),
+          const SizedBox(height: 24),
+        ],
+        if (_selectedTabIndex == 0 || _selectedTabIndex == 2) ...[
+          const SectionHeader(
+            title: '补光设备',
+            icon: Icons.wb_sunny_outlined,
+            color: Colors.orangeAccent,
+          ),
+          DeviceCard(
+            title: 'LED补光灯 #001',
+            location: '1号大棚',
+            runtimeDay: '22',
+            attributes: [
+              {'label': '亮度', 'value': light2 ? '75%' : '0%'},
+              {'label': '环境光照', 'value': currentIllumination},
+            ],
+            isOn: light2,
+            onChanged: (val) {
+              dm.controlDevice('light_control', val ? 'ON' : 'OFF');
+            },
+            icons: [Icons.access_time],
+          ),
+          const SizedBox(height: 20),
+        ],
+        if (_selectedTabIndex == 0 || _selectedTabIndex == 4) ...[
+          const SectionHeader(
+            title: '灌溉设备',
+            icon: Icons.water_drop_outlined,
+            color: Colors.blueAccent,
+          ),
+          DeviceCard(
+            title: '灌溉泵 #001',
+            location: '1号大棚',
+            runtimeDay: '28',
+            attributes: [
+              {'label': '流量', 'value': pump1 ? '120 L/min' : '0 L/min'},
+              {'label': '压力', 'value': pump1 ? '0.32 Mpa' : '0 Mpa'},
+            ],
+            isOn: pump1,
+            onChanged: (val) => setState(() => pump1 = val),
+            icons: [Icons.access_time, Icons.monitor],
+          ),
+          const SizedBox(height: 12),
+          DeviceCard(
+            title: '灌溉泵 #002',
+            location: '2号大棚',
+            runtimeDay: '32',
+            attributes: [
+              {'label': '流量', 'value': pump2 ? '120 L/min' : '0 L/min'},
+              {'label': '压力', 'value': pump2 ? '0.32 Mpa' : '0 Mpa'},
+            ],
+            isOn: pump2,
+            onChanged: (val) => setState(() => pump2 = val),
+            icons: [Icons.access_time, Icons.monitor],
+          ),
+          const SizedBox(height: 24),
+        ],
+        if (_selectedTabIndex == 3) ...[
+          Padding(
+            padding: const EdgeInsets.only(top: 50),
+            child: Center(
+              child: Text(
+                '暂无相关设备',
+                style: TextStyle(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant),
+              ),
+            ),
+          ),
+        ],
+      ],
+    );
+  }
 }
 
 class _FullscreenCameraPage extends StatelessWidget {
   final CameraController controller;
+
   const _FullscreenCameraPage({required this.controller});
 
   @override

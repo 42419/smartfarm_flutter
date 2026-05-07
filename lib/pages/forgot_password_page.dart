@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../services/app_feedback.dart';
 import '../services/auth_service.dart';
+import '../utils/responsive.dart';
 
 class ForgotPasswordPage extends StatefulWidget {
   const ForgotPasswordPage({super.key});
@@ -49,7 +50,8 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
 
     setState(() => _loading = true);
 
-    final error = await AuthService.instance.resetPassword(email, password);
+    final error =
+        await AuthService.instance.resetPassword(email, password);
 
     if (!mounted) return;
     setState(() => _loading = false);
@@ -62,59 +64,9 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
     }
   }
 
-  @override
-  Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    return GestureDetector(
-      onTap: () => FocusScope.of(context).unfocus(),
-      child: Scaffold(
-        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-        appBar: AppBar(
-          title: Text('重置密码', style: TextStyle(color: cs.onSurface)),
-          backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-        ),
-        body: SafeArea(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-            child: Column(
-              children: [
-                const SizedBox(height: 30),
-                Icon(Icons.lock_reset, size: 56, color: cs.primary),
-                const SizedBox(height: 16),
-                Text('输入注册邮箱和新密码即可重置',
-                    style: TextStyle(color: cs.onSurfaceVariant, fontSize: 14)),
-                const SizedBox(height: 24),
-                _buildField(_emailController, '注册邮箱', Icons.email_outlined, keyboardType: TextInputType.emailAddress),
-                const SizedBox(height: 14),
-                _buildField(_passwordController, '新密码（至少6位）', Icons.lock_outline_rounded, isPassword: true),
-                const SizedBox(height: 14),
-                _buildField(_confirmController, '确认新密码', Icons.lock_outline_rounded, isPassword: true),
-                const SizedBox(height: 30),
-                SizedBox(
-                  width: double.infinity,
-                  height: 50,
-                  child: OutlinedButton(
-                    onPressed: _loading ? null : _handleReset,
-                    style: OutlinedButton.styleFrom(
-                      side: BorderSide(color: cs.primary, width: 1.5),
-                      backgroundColor: cs.surface,
-                      foregroundColor: cs.onSurface,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                    ),
-                    child: _loading
-                        ? SizedBox(width: 22, height: 22, child: CircularProgressIndicator(strokeWidth: 2, color: cs.primary))
-                        : Text('重置密码', style: TextStyle(color: cs.primary, fontSize: 18, fontWeight: FontWeight.bold)),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildField(TextEditingController controller, String hint, IconData icon, {bool isPassword = false, TextInputType? keyboardType}) {
+  Widget _buildField(TextEditingController controller, String hint,
+      IconData icon,
+      {bool isPassword = false, TextInputType? keyboardType}) {
     final cs = Theme.of(context).colorScheme;
     return Container(
       decoration: BoxDecoration(
@@ -132,14 +84,166 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
           prefixIcon: Icon(icon, color: cs.onSurfaceVariant),
           suffixIcon: isPassword
               ? IconButton(
-                  icon: Icon(_obscureText ? Icons.visibility_off_outlined : Icons.visibility_outlined, color: cs.onSurfaceVariant),
-                  onPressed: () => setState(() => _obscureText = !_obscureText),
+                  icon: Icon(
+                    _obscureText
+                        ? Icons.visibility_off_outlined
+                        : Icons.visibility_outlined,
+                    color: cs.onSurfaceVariant,
+                  ),
+                  onPressed: () =>
+                      setState(() => _obscureText = !_obscureText),
                 )
               : null,
           border: InputBorder.none,
           contentPadding: const EdgeInsets.symmetric(vertical: 16),
         ),
       ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isLarge = Responsive.isLargeScreen(context);
+    if (isLarge) {
+      return _buildDesktopLayout(context);
+    }
+    return _buildMobileLayout(context);
+  }
+
+  Widget _buildDesktopLayout(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return GestureDetector(
+      onTap: () => FocusScope.of(context).unfocus(),
+      child: Scaffold(
+        backgroundColor: cs.surface,
+        body: Row(
+          children: [
+            Expanded(
+              flex: 5,
+              child: Container(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [
+                      cs.primary.withValues(alpha: 0.08),
+                      cs.surface,
+                    ],
+                  ),
+                ),
+                child: Center(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Image.asset("assets/img/logo.png", width: 120),
+                      const SizedBox(height: 28),
+                      Text(
+                        "禾寻",
+                        style: TextStyle(
+                          fontWeight: FontWeight.w900,
+                          fontSize: 36,
+                          color: cs.primary,
+                          letterSpacing: 2,
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      Text(
+                        "重置密码",
+                        style: TextStyle(
+                          fontSize: 16,
+                          color: cs.onSurfaceVariant,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+            Expanded(
+              flex: 6,
+              child: Center(
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 460),
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 48, vertical: 40),
+                    child: _buildFormContent(context, cs),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildMobileLayout(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return GestureDetector(
+      onTap: () => FocusScope.of(context).unfocus(),
+      child: Scaffold(
+        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+        appBar: AppBar(
+          title: Text('重置密码', style: TextStyle(color: cs.onSurface)),
+          backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+        ),
+        body: SafeArea(
+          child: SingleChildScrollView(
+            padding:
+                const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+            child: _buildFormContent(context, cs),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildFormContent(BuildContext context, ColorScheme cs) {
+    return Column(
+      children: [
+        Icon(Icons.lock_reset, size: 56, color: cs.primary),
+        const SizedBox(height: 16),
+        Text('输入注册邮箱和新密码即可重置',
+            style: TextStyle(color: cs.onSurfaceVariant, fontSize: 14)),
+        const SizedBox(height: 24),
+        _buildField(_emailController, '注册邮箱', Icons.email_outlined,
+            keyboardType: TextInputType.emailAddress),
+        const SizedBox(height: 14),
+        _buildField(_passwordController, '新密码（至少6位）',
+            Icons.lock_outline_rounded,
+            isPassword: true),
+        const SizedBox(height: 14),
+        _buildField(_confirmController, '确认新密码',
+            Icons.lock_outline_rounded,
+            isPassword: true),
+        const SizedBox(height: 30),
+        SizedBox(
+          width: double.infinity,
+          height: 50,
+          child: OutlinedButton(
+            onPressed: _loading ? null : _handleReset,
+            style: OutlinedButton.styleFrom(
+              side: BorderSide(color: cs.primary, width: 1.5),
+              backgroundColor: cs.surface,
+              foregroundColor: cs.onSurface,
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12)),
+            ),
+            child: _loading
+                ? SizedBox(
+                    width: 22,
+                    height: 22,
+                    child: CircularProgressIndicator(
+                        strokeWidth: 2, color: cs.primary))
+                : Text('重置密码',
+                    style: TextStyle(
+                        color: cs.primary,
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold)),
+          ),
+        ),
+      ],
     );
   }
 }

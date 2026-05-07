@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../services/app_feedback.dart';
 import '../services/auth_service.dart';
+import '../utils/responsive.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -52,6 +53,87 @@ class _LoginPageState extends State<LoginPage> {
 
   @override
   Widget build(BuildContext context) {
+    final isLarge = Responsive.isLargeScreen(context);
+    if (isLarge) {
+      return _buildDesktopLayout(context);
+    }
+    return _buildMobileLayout(context);
+  }
+
+  Widget _buildDesktopLayout(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return GestureDetector(
+      onTap: () => FocusScope.of(context).unfocus(),
+      child: Scaffold(
+        backgroundColor: cs.surface,
+        body: Row(
+          children: [
+            Expanded(
+              flex: 5,
+              child: Container(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [
+                      cs.primary.withValues(alpha: 0.08),
+                      cs.surface,
+                    ],
+                  ),
+                ),
+                child: Center(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Image.asset("assets/img/logo.png", width: 140),
+                      const SizedBox(height: 32),
+                      Text(
+                        "禾寻",
+                        style: TextStyle(
+                          fontWeight: FontWeight.w900,
+                          fontSize: 42,
+                          color: cs.primary,
+                          letterSpacing: 2,
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      Text(
+                        "寻味自然，追寻良田",
+                        style: TextStyle(
+                          fontSize: 16,
+                          color: cs.onSurfaceVariant,
+                        ),
+                      ),
+                      const SizedBox(height: 40),
+                      Text(
+                        "智慧农业管理平台",
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: cs.onSurfaceVariant.withValues(alpha: 0.6),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+            Expanded(
+              flex: 6,
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.fromLTRB(48, 100, 48, 40),
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 460),
+                  child: _buildForm(context, cs),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildMobileLayout(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     return GestureDetector(
       onTap: () => FocusScope.of(context).unfocus(),
@@ -83,144 +165,172 @@ class _LoginPageState extends State<LoginPage> {
                   ),
                 ),
                 const SizedBox(height: 40),
-
-                Container(
-                  decoration: BoxDecoration(
-                    color: cs.surface,
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: cs.outlineVariant),
-                  ),
-                  child: TextField(
-                    controller: _accountController,
-                    keyboardType: TextInputType.text,
-                    decoration: InputDecoration(
-                      hintText: "用户名或邮箱",
-                      hintStyle: TextStyle(color: cs.onSurfaceVariant),
-                      prefixIcon: Icon(Icons.person_outline, color: cs.onSurfaceVariant),
-                      border: InputBorder.none,
-                      contentPadding: const EdgeInsets.symmetric(vertical: 16),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 16),
-
-                Container(
-                  decoration: BoxDecoration(
-                    color: cs.surface,
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: cs.outlineVariant),
-                  ),
-                  child: TextField(
-                    controller: _passwordController,
-                    obscureText: _obscureText,
-                    decoration: InputDecoration(
-                      hintText: "请输入密码",
-                      hintStyle: TextStyle(color: cs.onSurfaceVariant),
-                      prefixIcon: Icon(Icons.lock_outline_rounded, color: cs.onSurfaceVariant),
-                      suffixIcon: IconButton(
-                        icon: Icon(
-                          _obscureText
-                              ? Icons.visibility_off_outlined
-                              : Icons.visibility_outlined,
-                          color: cs.onSurfaceVariant,
-                        ),
-                        onPressed: () => setState(() => _obscureText = !_obscureText),
-                      ),
-                      border: InputBorder.none,
-                      contentPadding: const EdgeInsets.symmetric(vertical: 16),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 30),
-
-                SizedBox(
-                  width: double.infinity,
-                  height: 50,
-                  child: OutlinedButton(
-                    onPressed: _loading ? null : _handleLogin,
-                    style: OutlinedButton.styleFrom(
-                      side: BorderSide(color: cs.primary, width: 1.5),
-                      backgroundColor: cs.surface,
-                      foregroundColor: cs.onSurface,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                    ),
-                    child: _loading
-                        ? SizedBox(
-                            width: 22,
-                            height: 22,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              color: cs.primary,
-                            ),
-                          )
-                        : Text(
-                            "登 录",
-                            style: TextStyle(
-                              color: cs.primary,
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                  ),
-                ),
-                const SizedBox(height: 20),
-
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    GestureDetector(
-                      onTap: () => Navigator.of(context).pushNamed('/register'),
-                      child: Text("注册账号",
-                          style: TextStyle(
-                              color: cs.onSurfaceVariant, fontSize: 14)),
-                    ),
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      child: Text("|",
-                          style: TextStyle(
-                              color: cs.onSurfaceVariant, fontSize: 14)),
-                    ),
-                    GestureDetector(
-                      onTap: () => Navigator.of(context).pushNamed('/forgot-password'),
-                      child: Text("忘记密码",
-                          style: TextStyle(
-                              color: cs.onSurfaceVariant, fontSize: 14)),
-                    ),
-                  ],
-                ),
-
-                const SizedBox(height: 50),
-
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Expanded(child: Divider(color: cs.outlineVariant, endIndent: 10)),
-                    Text("其他登录方式",
-                        style: TextStyle(color: cs.onSurfaceVariant, fontSize: 12)),
-                    Expanded(child: Divider(color: cs.outlineVariant, indent: 10)),
-                  ],
-                ),
-                const SizedBox(height: 20),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Container(
-                      width: 50, height: 50,
-                      alignment: Alignment.center,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        border: Border.all(color: cs.outlineVariant),
-                      ),
-                      child: Icon(Icons.wechat, size: 28, color: const Color(0xFF07C160)),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 40),
+                _buildForm(context, cs),
               ],
             ),
           ),
         ),
       ),
+    );
+  }
+
+  Widget _buildForm(BuildContext context, ColorScheme cs) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Text(
+          "欢迎登录",
+          style: TextStyle(
+            fontSize: 26,
+            fontWeight: FontWeight.bold,
+            color: cs.onSurface,
+          ),
+        ),
+        const SizedBox(height: 8),
+        Text(
+          "登录您的禾寻账号",
+          style: TextStyle(
+            fontSize: 14,
+            color: cs.onSurfaceVariant,
+          ),
+        ),
+        const SizedBox(height: 28),
+        Container(
+          decoration: BoxDecoration(
+            color: cs.surface,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: cs.outlineVariant),
+          ),
+          child: TextField(
+            controller: _accountController,
+            keyboardType: TextInputType.text,
+            decoration: InputDecoration(
+              hintText: "用户名或邮箱",
+              hintStyle: TextStyle(color: cs.onSurfaceVariant),
+              prefixIcon:
+                  Icon(Icons.person_outline, color: cs.onSurfaceVariant),
+              border: InputBorder.none,
+              contentPadding: const EdgeInsets.symmetric(vertical: 16),
+            ),
+          ),
+        ),
+        const SizedBox(height: 16),
+        Container(
+          decoration: BoxDecoration(
+            color: cs.surface,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: cs.outlineVariant),
+          ),
+          child: TextField(
+            controller: _passwordController,
+            obscureText: _obscureText,
+            decoration: InputDecoration(
+              hintText: "请输入密码",
+              hintStyle: TextStyle(color: cs.onSurfaceVariant),
+              prefixIcon:
+                  Icon(Icons.lock_outline_rounded, color: cs.onSurfaceVariant),
+              suffixIcon: IconButton(
+                icon: Icon(
+                  _obscureText
+                      ? Icons.visibility_off_outlined
+                      : Icons.visibility_outlined,
+                  color: cs.onSurfaceVariant,
+                ),
+                onPressed: () =>
+                    setState(() => _obscureText = !_obscureText),
+              ),
+              border: InputBorder.none,
+              contentPadding: const EdgeInsets.symmetric(vertical: 16),
+            ),
+          ),
+        ),
+        const SizedBox(height: 30),
+        SizedBox(
+          width: double.infinity,
+          height: 50,
+          child: OutlinedButton(
+            onPressed: _loading ? null : _handleLogin,
+            style: OutlinedButton.styleFrom(
+              side: BorderSide(color: cs.primary, width: 1.5),
+              backgroundColor: cs.surface,
+              foregroundColor: cs.onSurface,
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12)),
+            ),
+            child: _loading
+                ? SizedBox(
+                    width: 22,
+                    height: 22,
+                    child: CircularProgressIndicator(
+                        strokeWidth: 2, color: cs.primary),
+                  )
+                : Text(
+                    "登 录",
+                    style: TextStyle(
+                      color: cs.primary,
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+          ),
+        ),
+        const SizedBox(height: 20),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            GestureDetector(
+              onTap: () =>
+                  Navigator.of(context).pushNamed('/register'),
+              child: Text("注册账号",
+                  style: TextStyle(
+                      color: cs.onSurfaceVariant, fontSize: 14)),
+            ),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Text("|",
+                  style: TextStyle(
+                      color: cs.onSurfaceVariant, fontSize: 14)),
+            ),
+            GestureDetector(
+              onTap: () =>
+                  Navigator.of(context).pushNamed('/forgot-password'),
+              child: Text("忘记密码",
+                  style: TextStyle(
+                      color: cs.onSurfaceVariant, fontSize: 14)),
+            ),
+          ],
+        ),
+        const SizedBox(height: 50),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Expanded(
+                child: Divider(color: cs.outlineVariant, endIndent: 10)),
+            Text("其他登录方式",
+                style: TextStyle(color: cs.onSurfaceVariant, fontSize: 12)),
+            Expanded(
+                child: Divider(color: cs.outlineVariant, indent: 10)),
+          ],
+        ),
+        const SizedBox(height: 20),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              width: 50,
+              height: 50,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                border: Border.all(color: cs.outlineVariant),
+              ),
+              child: Icon(Icons.wechat,
+                  size: 28, color: const Color(0xFF07C160)),
+            ),
+          ],
+        ),
+        const SizedBox(height: 40),
+      ],
     );
   }
 }

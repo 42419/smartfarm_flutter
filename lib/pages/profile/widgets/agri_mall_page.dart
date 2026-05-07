@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../../utils/responsive.dart';
 import '../../../../services/cart_service.dart';
 import '../../../../services/app_feedback.dart';
 import 'cart_page.dart';
@@ -293,8 +294,8 @@ class _AgriMallPageState extends State<AgriMallPage> {
                 : GridView.builder(
                     padding: const EdgeInsets.all(16),
                     gridDelegate:
-                        const SliverGridDelegateWithFixedCrossAxisCount(
-                          crossAxisCount: 2,
+                        SliverGridDelegateWithFixedCrossAxisCount(
+                          crossAxisCount: Responsive.gridColumns(context),
                           mainAxisSpacing: 12,
                           crossAxisSpacing: 12,
                           childAspectRatio: 0.72,

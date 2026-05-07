@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../config/config.dart';
 import '../../models/sensor_trend_point.dart';
+import '../../utils/responsive.dart';
 import '../sensor_history/sensor_history_page.dart';
 import '../../services/device_manager.dart';
 import '../../services/sensor_history_service.dart';
@@ -88,6 +89,7 @@ class _DataMonitorPageState extends State<DataMonitorPage>
     final currentTemp = dm.temperature;
     final currentHumidity = dm.humidity;
     final currentIllumination = dm.illumination;
+    final isLarge = Responsive.isLargeScreen(context);
 
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
@@ -97,27 +99,31 @@ class _DataMonitorPageState extends State<DataMonitorPage>
         backgroundColor: Theme.of(context).colorScheme.surface,
         elevation: 0,
       ),
-      body: SingleChildScrollView(
-        padding:
-            const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('实时数据',
-                style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                    color: Theme.of(context).colorScheme.onSurface)),
-            const SizedBox(height: 12),
-            GridView.count(
-              crossAxisCount: 2,
-              mainAxisSpacing: 12,
-              crossAxisSpacing: 12,
-              childAspectRatio: 1.05,
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              children: [
-                DataCard(
+      body: isLarge
+          ? _buildLandscapeBody(
+              context, currentTemp, currentHumidity, currentIllumination)
+          : _buildPortraitBody(
+              context, currentTemp, currentHumidity, currentIllumination),
+    );
+  }
+
+  Widget _buildLandscapeBody(BuildContext context, String currentTemp,
+      String currentHumidity, String currentIllumination) {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('实时数据',
+              style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  color: Theme.of(context).colorScheme.onSurface)),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: DataCard(
                   icon: Icons.thermostat,
                   iconColor: Colors.orangeAccent,
                   val: currentTemp,
@@ -128,7 +134,10 @@ class _DataMonitorPageState extends State<DataMonitorPage>
                   statusColor: Colors.green,
                   valColor: Theme.of(context).colorScheme.onSurface,
                 ),
-                DataCard(
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: DataCard(
                   icon: Icons.water_drop_outlined,
                   iconColor: Colors.blueAccent,
                   val: currentHumidity,
@@ -139,20 +148,25 @@ class _DataMonitorPageState extends State<DataMonitorPage>
                   statusColor: Colors.green,
                   valColor: Theme.of(context).colorScheme.onSurface,
                 ),
-                DataCard(
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: DataCard(
                   icon: Icons.eco_outlined,
                   iconColor: Colors.green,
                   val: _calcSoilMoisture(currentTemp, currentHumidity),
                   unit: '%',
                   label: '土壤湿度',
                   range: '25% ~ 70%',
-                  status:
-                      _soilMoistureStatus(currentTemp, currentHumidity),
-                  statusColor: _soilMoistureStatusColor(
-                      currentTemp, currentHumidity),
+                  status: _soilMoistureStatus(currentTemp, currentHumidity),
+                  statusColor:
+                      _soilMoistureStatusColor(currentTemp, currentHumidity),
                   valColor: Theme.of(context).colorScheme.onSurface,
                 ),
-                DataCard(
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: DataCard(
                   icon: Icons.wb_sunny_outlined,
                   iconColor: Colors.yellow.shade700,
                   val: currentIllumination,
@@ -163,53 +177,170 @@ class _DataMonitorPageState extends State<DataMonitorPage>
                   statusColor: Colors.green,
                   valColor: Theme.of(context).colorScheme.onSurface,
                 ),
-              ],
-            ),
-            const SizedBox(height: 24),
-            TrendSection(
-              metrics: _metrics,
-              selectedMetricIndex: _selectedMetricIndex,
-              selectedTimeIndex: _selectedTimeIndex,
-              isLoading: _isTrendLoading,
-              trendPoints: _trendPoints,
-              onMetricChanged: (i) {
-                setState(() => _selectedMetricIndex = i);
-                _loadTrendData();
-              },
-              onTimeChanged: (i) {
-                setState(() => _selectedTimeIndex = i);
-                _loadTrendData();
-              },
-            ),
-            const SizedBox(height: 24),
-            SizedBox(
-              width: double.infinity,
-              height: 46,
-              child: OutlinedButton.icon(
-                onPressed: () {
-                  Navigator.of(context).push(
-                    MaterialPageRoute(
-                      builder: (context) =>
-                          const SensorHistoryPage(),
-                    ),
-                  );
-                },
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: Theme.of(context).colorScheme.primary,
-                  side: BorderSide(color: Theme.of(context).colorScheme.primary),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                ),
-                icon: const Icon(Icons.history),
-                label: const Text('查看历史数据',
-                    style: TextStyle(fontWeight: FontWeight.bold)),
               ),
+            ],
+          ),
+          const SizedBox(height: 24),
+          TrendSection(
+            metrics: _metrics,
+            selectedMetricIndex: _selectedMetricIndex,
+            selectedTimeIndex: _selectedTimeIndex,
+            isLoading: _isTrendLoading,
+            trendPoints: _trendPoints,
+            onMetricChanged: (i) {
+              setState(() => _selectedMetricIndex = i);
+              _loadTrendData();
+            },
+            onTimeChanged: (i) {
+              setState(() => _selectedTimeIndex = i);
+              _loadTrendData();
+            },
+          ),
+          const SizedBox(height: 24),
+          SizedBox(
+            height: 46,
+            child: OutlinedButton.icon(
+              onPressed: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (context) => const SensorHistoryPage(),
+                  ),
+                );
+              },
+              style: OutlinedButton.styleFrom(
+                foregroundColor: Theme.of(context).colorScheme.primary,
+                side:
+                    BorderSide(color: Theme.of(context).colorScheme.primary),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12)),
+              ),
+              icon: const Icon(Icons.history),
+              label: const Text('查看历史数据',
+                  style: TextStyle(fontWeight: FontWeight.bold)),
             ),
-            const SizedBox(height: 30),
-          ],
-        ),
+          ),
+          const SizedBox(height: 20),
+        ],
       ),
+    );
+  }
+
+  Widget _buildPortraitBody(BuildContext context, String currentTemp,
+      String currentHumidity, String currentIllumination) {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('实时数据',
+              style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  color: Theme.of(context).colorScheme.onSurface)),
+          const SizedBox(height: 12),
+          _buildSensorGrid(currentTemp, currentHumidity, currentIllumination),
+          const SizedBox(height: 24),
+          TrendSection(
+            metrics: _metrics,
+            selectedMetricIndex: _selectedMetricIndex,
+            selectedTimeIndex: _selectedTimeIndex,
+            isLoading: _isTrendLoading,
+            trendPoints: _trendPoints,
+            onMetricChanged: (i) {
+              setState(() => _selectedMetricIndex = i);
+              _loadTrendData();
+            },
+            onTimeChanged: (i) {
+              setState(() => _selectedTimeIndex = i);
+              _loadTrendData();
+            },
+          ),
+          const SizedBox(height: 24),
+          SizedBox(
+            width: double.infinity,
+            height: 46,
+            child: OutlinedButton.icon(
+              onPressed: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (context) => const SensorHistoryPage(),
+                  ),
+                );
+              },
+              style: OutlinedButton.styleFrom(
+                foregroundColor: Theme.of(context).colorScheme.primary,
+                side:
+                    BorderSide(color: Theme.of(context).colorScheme.primary),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12)),
+              ),
+              icon: const Icon(Icons.history),
+              label: const Text('查看历史数据',
+                  style: TextStyle(fontWeight: FontWeight.bold)),
+            ),
+          ),
+          const SizedBox(height: 30),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSensorGrid(
+      String currentTemp, String currentHumidity, String currentIllumination) {
+    return GridView.count(
+      crossAxisCount: Responsive.gridColumns(context),
+      mainAxisSpacing: 12,
+      crossAxisSpacing: 12,
+      childAspectRatio: 1.05,
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      children: [
+        DataCard(
+          icon: Icons.thermostat,
+          iconColor: Colors.orangeAccent,
+          val: currentTemp,
+          unit: '°C',
+          label: '温度',
+          range: '15°C ~ 30°C',
+          status: '正常',
+          statusColor: Colors.green,
+          valColor: Theme.of(context).colorScheme.onSurface,
+        ),
+        DataCard(
+          icon: Icons.water_drop_outlined,
+          iconColor: Colors.blueAccent,
+          val: currentHumidity,
+          unit: '%',
+          label: '空气湿度',
+          range: '40% ~ 80%',
+          status: '正常',
+          statusColor: Colors.green,
+          valColor: Theme.of(context).colorScheme.onSurface,
+        ),
+        DataCard(
+          icon: Icons.eco_outlined,
+          iconColor: Colors.green,
+          val: _calcSoilMoisture(currentTemp, currentHumidity),
+          unit: '%',
+          label: '土壤湿度',
+          range: '25% ~ 70%',
+          status: _soilMoistureStatus(currentTemp, currentHumidity),
+          statusColor:
+              _soilMoistureStatusColor(currentTemp, currentHumidity),
+          valColor: Theme.of(context).colorScheme.onSurface,
+        ),
+        DataCard(
+          icon: Icons.wb_sunny_outlined,
+          iconColor: Colors.yellow.shade700,
+          val: currentIllumination,
+          unit: '',
+          label: '光照强度(lux)',
+          range: '1000 ~ 8000',
+          status: '正常',
+          statusColor: Colors.green,
+          valColor: Theme.of(context).colorScheme.onSurface,
+        ),
+      ],
     );
   }
 

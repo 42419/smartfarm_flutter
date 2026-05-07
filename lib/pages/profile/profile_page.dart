@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../services/auth_service.dart';
 import '../../services/theme_service.dart';
+import '../../utils/responsive.dart';
 import 'widgets/farm_card.dart';
 import 'widgets/settings_card.dart';
 import 'widgets/user_info_section.dart';
@@ -148,6 +149,7 @@ class _ProfilePageState extends State<ProfilePage> {
 
   @override
   Widget build(BuildContext context) {
+    final isLarge = Responsive.isLargeScreen(context);
     final isDark = Theme.of(context).brightness == Brightness.dark;
     return Container(
       decoration: BoxDecoration(
@@ -163,66 +165,157 @@ class _ProfilePageState extends State<ProfilePage> {
       child: Scaffold(
         backgroundColor: Colors.transparent,
         body: SafeArea(
-          child: SingleChildScrollView(
-            child: Column(
-              children: [
-                const SizedBox(height: 20),
-                UserInfoSection(
-                  onEditTap: () async {
-                    await Navigator.of(context).pushNamed('/edit-profile');
-                    if (mounted) setState(() {});
-                  },
-                ),
-                const SizedBox(height: 20),
-                const FarmCard(),
-                const SizedBox(height: 16),
-                SettingsCard(tiles: [
-                  SettingTile(
-                    icon: Icons.battery_charging_full,
-                    iconColor: Colors.amber,
-                    title: '设备耗材',
-                    onTap: () => _push(context, const DeviceSuppliesPage()),
-                  ),
-                  SettingTile(
-                    icon: Icons.wifi_tethering,
-                    iconColor: Colors.purpleAccent,
-                    title: '农场网络',
-                    trailingText: '良好',
-                    onTap: () => _push(context, const FarmNetworkPage()),
-                  ),
-                ]),
-                const SizedBox(height: 16),
-                SettingsCard(tiles: [
-                  SettingTile(
-                    icon: _themeIcon,
-                    iconColor: Colors.blueGrey,
-                    title: '外观',
-                    trailingText: _themeLabel,
-                    onTap: _showThemeSheet,
-                  ),
-                ]),
-                const SizedBox(height: 16),
-                SettingsCard(tiles: [
-                  SettingTile(
-                    icon: Icons.shopping_bag_outlined,
-                    iconColor: Colors.amber,
-                    title: '农资商城',
-                    onTap: () => _push(context, const AgriMallPage()),
-                  ),
-                  SettingTile(
-                    icon: Icons.support_agent,
-                    iconColor: Colors.orangeAccent,
-                    title: '农业服务',
-                    onTap: () => _push(context, const AgriServicePage()),
-                  ),
-                ]),
-                const SizedBox(height: 30),
-                _buildLogoutButton(context),
-                const SizedBox(height: 40),
-              ],
-            ),
-          ),
+          child: isLarge
+              ? _buildLandscapeBody(context)
+              : _buildMobileBody(context),
         ),
+      ),
+    );
+  }
+
+  Widget _buildLandscapeBody(BuildContext context) {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(20),
+      child: Column(
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              SizedBox(
+                width: 320,
+                child: Column(
+                  children: [
+                    UserInfoSection(
+                      onEditTap: () async {
+                        await Navigator.of(context)
+                            .pushNamed('/edit-profile');
+                        if (mounted) setState(() {});
+                      },
+                    ),
+                    const SizedBox(height: 16),
+                    const FarmCard(),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 20),
+              Expanded(
+                child: Column(
+                  children: [
+                    SettingsCard(tiles: [
+                      SettingTile(
+                        icon: Icons.battery_charging_full,
+                        iconColor: Colors.amber,
+                        title: '设备耗材',
+                        onTap: () =>
+                            _push(context, const DeviceSuppliesPage()),
+                      ),
+                      SettingTile(
+                        icon: Icons.wifi_tethering,
+                        iconColor: Colors.purpleAccent,
+                        title: '农场网络',
+                        trailingText: '良好',
+                        onTap: () =>
+                            _push(context, const FarmNetworkPage()),
+                      ),
+                    ]),
+                    const SizedBox(height: 16),
+                    SettingsCard(tiles: [
+                      SettingTile(
+                        icon: _themeIcon,
+                        iconColor: Colors.blueGrey,
+                        title: '外观',
+                        trailingText: _themeLabel,
+                        onTap: _showThemeSheet,
+                      ),
+                    ]),
+                    const SizedBox(height: 16),
+                    SettingsCard(tiles: [
+                      SettingTile(
+                        icon: Icons.shopping_bag_outlined,
+                        iconColor: Colors.amber,
+                        title: '农资商城',
+                        onTap: () =>
+                            _push(context, const AgriMallPage()),
+                      ),
+                      SettingTile(
+                        icon: Icons.support_agent,
+                        iconColor: Colors.orangeAccent,
+                        title: '农业服务',
+                        onTap: () =>
+                            _push(context, const AgriServicePage()),
+                      ),
+                    ]),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 24),
+          _buildLogoutButton(context),
+          const SizedBox(height: 30),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMobileBody(BuildContext context) {
+    return SingleChildScrollView(
+      child: Column(
+        children: [
+          const SizedBox(height: 20),
+          UserInfoSection(
+            onEditTap: () async {
+              await Navigator.of(context).pushNamed('/edit-profile');
+              if (mounted) setState(() {});
+            },
+          ),
+          const SizedBox(height: 20),
+          const FarmCard(),
+          const SizedBox(height: 16),
+          SettingsCard(tiles: [
+            SettingTile(
+              icon: Icons.battery_charging_full,
+              iconColor: Colors.amber,
+              title: '设备耗材',
+              onTap: () => _push(context, const DeviceSuppliesPage()),
+            ),
+            SettingTile(
+              icon: Icons.wifi_tethering,
+              iconColor: Colors.purpleAccent,
+              title: '农场网络',
+              trailingText: '良好',
+              onTap: () => _push(context, const FarmNetworkPage()),
+            ),
+          ]),
+          const SizedBox(height: 16),
+          SettingsCard(tiles: [
+            SettingTile(
+              icon: _themeIcon,
+              iconColor: Colors.blueGrey,
+              title: '外观',
+              trailingText: _themeLabel,
+              onTap: _showThemeSheet,
+            ),
+          ]),
+          const SizedBox(height: 16),
+          SettingsCard(tiles: [
+            SettingTile(
+              icon: Icons.shopping_bag_outlined,
+              iconColor: Colors.amber,
+              title: '农资商城',
+              onTap: () => _push(context, const AgriMallPage()),
+            ),
+            SettingTile(
+              icon: Icons.support_agent,
+              iconColor: Colors.orangeAccent,
+              title: '农业服务',
+              onTap: () => _push(context, const AgriServicePage()),
+            ),
+          ]),
+          const SizedBox(height: 30),
+          _buildLogoutButton(context),
+          const SizedBox(height: 40),
+        ],
       ),
     );
   }

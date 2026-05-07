@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../utils/responsive.dart';
 import 'monitor/data_monitor_page.dart';
 import 'devices/device_control_page.dart';
 import 'home/overview_page.dart';
@@ -47,6 +48,68 @@ class MainPageState extends State<MainPage> {
 
   @override
   Widget build(BuildContext context) {
+    if (Responsive.isLargeScreen(context)) {
+      return _buildDesktopLayout(context);
+    }
+    return _buildMobileLayout(context);
+  }
+
+  Widget _buildDesktopLayout(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
+    return Scaffold(
+      body: Row(
+        children: [
+          NavigationRail(
+            leading: Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: FloatingActionButton(
+                heroTag: 'desktop_ai_btn',
+                mini: true,
+                onPressed: _onAiTap,
+                elevation: 0,
+                backgroundColor: colorScheme.surface,
+                child: Image.asset(
+                  "assets/img/ai.png",
+                  width: 24,
+                  height: 24,
+                ),
+              ),
+            ),
+            selectedIndex: _currentIndex,
+            onDestinationSelected: (i) => setState(() => _currentIndex = i),
+            labelType: NavigationRailLabelType.all,
+            backgroundColor: colorScheme.surface,
+            indicatorColor: colorScheme.primary.withValues(alpha: 0.12),
+            selectedIconTheme: IconThemeData(color: colorScheme.primary),
+            unselectedIconTheme:
+                IconThemeData(color: colorScheme.onSurfaceVariant),
+            selectedLabelTextStyle:
+                TextStyle(color: colorScheme.primary, fontSize: 12),
+            unselectedLabelTextStyle:
+                TextStyle(color: colorScheme.onSurfaceVariant, fontSize: 12),
+            destinations: [
+              for (final tab in _tabs)
+                NavigationRailDestination(
+                  icon: Icon(tab.$1),
+                  selectedIcon: Icon(tab.$2),
+                  label: Text(tab.$3),
+                ),
+            ],
+          ),
+          const VerticalDivider(thickness: 1, width: 1),
+          Expanded(
+            child: IndexedStack(
+              index: _currentIndex,
+              children: _pages,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMobileLayout(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     final bottomPadding = MediaQuery.of(context).padding.bottom;
 

@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../models/crop.dart';
+import '../../utils/responsive.dart';
 import '../../services/auth_service.dart';
 import '../../config/config.dart';
 import '../../services/crop_service.dart';
@@ -261,151 +262,246 @@ class _OverviewPageState extends State<OverviewPage> {
           const SizedBox(width: 8),
         ],
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+      body: Builder(
+        builder: (context) {
+          final isLarge = Responsive.isLargeScreen(context);
+          return SingleChildScrollView(
+            padding: const EdgeInsets.all(16.0),
+            child: isLarge
+                ? _buildLandscapeContent(context, w)
+                : _buildPortraitContent(context, w),
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildLandscapeContent(BuildContext context, WeatherService w) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
           children: [
-            Row(
-              children: [
-                Expanded(
-                  child: _buildStatusCard(
-                    '在线设备',
-                    '42',
-                    '全部在线',
-                    Icons.developer_board,
-                    Colors.blue,
-                    Colors.green,
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: _buildStatusCard(
-                    '告警设备',
-                    '3',
-                    '需紧急处理',
-                    Icons.warning_amber_rounded,
-                    Colors.redAccent,
-                    Colors.redAccent,
-                    isAlert: true,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 24),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                const Text('环境数据',
-                    style: TextStyle(
-                        fontSize: 16, fontWeight: FontWeight.bold)),
-                Text(_formatTimeAgo(),
-                    style: TextStyle(
-                        fontSize: 12,
-                        color: Theme.of(context).colorScheme.onSurfaceVariant)),
-              ],
-            ),
-            const SizedBox(height: 12),
-            Container(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
-              decoration: BoxDecoration(
-                color: Theme.of(context).colorScheme.surfaceContainerLow,
-                borderRadius: BorderRadius.circular(16),
-              ),
-              child: Column(
-                children: [
-                  EnvDataSection(
-                    temperature: _temperatureText,
-                    humidity: _humidityText,
-                    illumination: _illuminationText,
-                    soilMoisture: _soilMoistureText,
-                  ),
-                  Divider(height: 20, color: Theme.of(context).colorScheme.outlineVariant),
-                  WeatherCard(
-                    city: w.city,
-                    weatherText: w.weatherText,
-                    weatherIcon: w.weatherIcon(),
-                    weatherTemp: w.weatherTemp,
-                    weatherWind: w.weatherWind,
-                    weatherHumidity: w.weatherHumidity,
-                    accentColor: w.accentColor,
-                    isRefreshing: _weatherRefreshing,
-                    onRefresh: _refreshWeather,
-                  ),
-                ],
+            Expanded(
+              child: _buildStatusCard(
+                '在线设备', '42', '全部在线',
+                Icons.developer_board, Colors.blue, Colors.green,
               ),
             ),
-            const SizedBox(height: 24),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                const Text('农场区域视图',
-                    style: TextStyle(
-                        fontSize: 16, fontWeight: FontWeight.bold)),
-                Row(
-                  children: [
-                    const LegendItem(
-                        color: Color(0xFF1565C0), label: '优秀'),
-                    const SizedBox(width: 8),
-                    const LegendItem(color: Colors.green, label: '良好'),
-                    const SizedBox(width: 8),
-                    const LegendItem(color: Colors.amber, label: '告警'),
-                    const SizedBox(width: 8),
-                    const LegendItem(
-                        color: Colors.redAccent, label: '异常'),
-                  ],
-                ),
-              ],
+            const SizedBox(width: 16),
+            Expanded(
+              child: _buildStatusCard(
+                '告警设备', '3', '需紧急处理',
+                Icons.warning_amber_rounded, Colors.redAccent, Colors.redAccent,
+                isAlert: true,
+              ),
             ),
-            const SizedBox(height: 12),
-            SizedBox(
-              height: 250,
-              child: _loading
-                  ? const Center(child: CircularProgressIndicator())
-                  : _crops.isEmpty
-                      ? const Center(child: Text('暂无大棚数据'))
-                      : ListView.builder(
-                          physics: const BouncingScrollPhysics(),
-                          padding: EdgeInsets.zero,
-                          itemCount: _crops.length,
-                          itemBuilder: (context, index) {
-                            final crop = _crops[index];
-                            final info = getHealthInfo(context, crop.health);
-                            return Padding(
-                              padding: EdgeInsets.only(
-                                bottom: index < _crops.length - 1 ? 10 : 0,
-                              ),
-                              child: GestureDetector(
-                                onTap: () {
-                                  Navigator.of(context).push(
-                                    MaterialPageRoute(
-                                      builder: (context) =>
-                                          CropDetailPage(
-                                            crop: crop,
-                                            greenhouseIndex: index,
-                                          ),
-                                    ),
-                                  );
-                                },
-                                child: GreenhouseCard(
-                                  title:
-                                      '${index + 1}号大棚 - ${crop.cropName}',
-                                  subtitle: crop.health ?? '状态未知',
-                                  bgColor: info.bgColor,
-                                  mainColor: info.mainColor,
-                                  icons: relevantIcons(crop),
-                                  crop: crop,
-                                ),
-                              ),
-                            );
-                          },
-                        ),
-            ),
-            const SizedBox(height: 20),
           ],
         ),
-      ),
+        const SizedBox(height: 24),
+        Row(
+          children: [
+            const Text('环境数据',
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+            const SizedBox(width: 12),
+            Text(_formatTimeAgo(),
+                style: TextStyle(
+                    fontSize: 12,
+                    color: Theme.of(context).colorScheme.onSurfaceVariant)),
+          ],
+        ),
+        const SizedBox(height: 12),
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(
+              flex: 3,
+              child: Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
+                decoration: BoxDecoration(
+                  color: Theme.of(context).colorScheme.surfaceContainerLow,
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: EnvDataSection(
+                  temperature: _temperatureText,
+                  humidity: _humidityText,
+                  illumination: _illuminationText,
+                  soilMoisture: _soilMoistureText,
+                ),
+              ),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              flex: 2,
+              child: Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
+                decoration: BoxDecoration(
+                  color: Theme.of(context).colorScheme.surfaceContainerLow,
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: WeatherCard(
+                  city: w.city,
+                  weatherText: w.weatherText,
+                  weatherIcon: w.weatherIcon(),
+                  weatherTemp: w.weatherTemp,
+                  weatherWind: w.weatherWind,
+                  weatherHumidity: w.weatherHumidity,
+                  accentColor: w.accentColor,
+                  isRefreshing: _weatherRefreshing,
+                  onRefresh: _refreshWeather,
+                ),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 24),
+        _buildFarmSection(context),
+        const SizedBox(height: 20),
+      ],
+    );
+  }
+
+  Widget _buildPortraitContent(BuildContext context, WeatherService w) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: _buildStatusCard(
+                '在线设备', '42', '全部在线',
+                Icons.developer_board, Colors.blue, Colors.green,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: _buildStatusCard(
+                '告警设备', '3', '需紧急处理',
+                Icons.warning_amber_rounded, Colors.redAccent, Colors.redAccent,
+                isAlert: true,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 24),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            const Text('环境数据',
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+            Text(_formatTimeAgo(),
+                style: TextStyle(
+                    fontSize: 12,
+                    color: Theme.of(context).colorScheme.onSurfaceVariant)),
+          ],
+        ),
+        const SizedBox(height: 12),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
+          decoration: BoxDecoration(
+            color: Theme.of(context).colorScheme.surfaceContainerLow,
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: Column(
+            children: [
+              EnvDataSection(
+                temperature: _temperatureText,
+                humidity: _humidityText,
+                illumination: _illuminationText,
+                soilMoisture: _soilMoistureText,
+              ),
+              Divider(
+                  height: 20,
+                  color: Theme.of(context).colorScheme.outlineVariant),
+              WeatherCard(
+                city: w.city,
+                weatherText: w.weatherText,
+                weatherIcon: w.weatherIcon(),
+                weatherTemp: w.weatherTemp,
+                weatherWind: w.weatherWind,
+                weatherHumidity: w.weatherHumidity,
+                accentColor: w.accentColor,
+                isRefreshing: _weatherRefreshing,
+                onRefresh: _refreshWeather,
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 24),
+        _buildFarmSection(context),
+        const SizedBox(height: 20),
+      ],
+    );
+  }
+
+  Widget _buildFarmSection(BuildContext context) {
+    final isLarge = Responsive.isLargeScreen(context);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            const Text('农场区域视图',
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+            Row(
+              children: [
+                const LegendItem(color: Color(0xFF1565C0), label: '优秀'),
+                const SizedBox(width: 8),
+                const LegendItem(color: Colors.green, label: '良好'),
+                const SizedBox(width: 8),
+                const LegendItem(color: Colors.amber, label: '告警'),
+                const SizedBox(width: 8),
+                const LegendItem(color: Colors.redAccent, label: '异常'),
+              ],
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        SizedBox(
+          height: isLarge ? 400 : 250,
+          child: _loading
+              ? const Center(child: CircularProgressIndicator())
+              : _crops.isEmpty
+                  ? const Center(child: Text('暂无大棚数据'))
+                  : ListView.builder(
+                      physics: const BouncingScrollPhysics(),
+                      padding: EdgeInsets.zero,
+                      itemCount: _crops.length,
+                      itemBuilder: (context, index) {
+                        final crop = _crops[index];
+                        final info = getHealthInfo(context, crop.health);
+                        return Padding(
+                          padding: EdgeInsets.only(
+                            bottom: index < _crops.length - 1 ? 10 : 0,
+                          ),
+                          child: GestureDetector(
+                            onTap: () {
+                              Navigator.of(context).push(
+                                MaterialPageRoute(
+                                  builder: (context) => CropDetailPage(
+                                    crop: crop,
+                                    greenhouseIndex: index,
+                                  ),
+                                ),
+                              );
+                            },
+                            child: GreenhouseCard(
+                              title: '${index + 1}号大棚 - ${crop.cropName}',
+                              subtitle: crop.health ?? '状态未知',
+                              bgColor: info.bgColor,
+                              mainColor: info.mainColor,
+                              icons: relevantIcons(crop),
+                              crop: crop,
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+        ),
+      ],
     );
   }
 
