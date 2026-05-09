@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../config/config.dart';
 import '../../models/sensor_history_record.dart';
 import '../../services/sensor_history_service.dart';
+import '../../utils/responsive.dart';
 import '../../widgets/common/metric_selector.dart';
 import 'widgets/date_picker_dialog.dart';
 import 'widgets/query_form.dart';
@@ -100,64 +101,125 @@ class _SensorHistoryPageState extends State<SensorHistoryPage> {
         ),
         backgroundColor: Theme.of(context).colorScheme.surface,
       ),
-      body: Column(
-        children: [
-          QueryForm(
-            startDate: _startDate,
-            endDate: _endDate,
-            limit: _limit,
-            descending: _descending,
-            loading: _loading,
-            onPickStartDate: () => _pickDate(isStart: true),
-            onPickEndDate: () => _pickDate(isStart: false),
-            onLimitChanged: (value) {
-              if (value != null) setState(() => _limit = value);
-            },
-            onDescendingChanged: (value) {
-              if (value != null) setState(() => _descending = value);
-            },
-            onQuery: () => _loadRecords(forceRefresh: true),
-          ),
-          Expanded(
-            child: _loading
-                ? const Center(child: CircularProgressIndicator())
-                : _records.isEmpty
-                    ? Center(
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(Icons.inbox_outlined,
-                                size: 48, color: Theme.of(context).colorScheme.onSurfaceVariant),
-                            const SizedBox(height: 12),
-                            Text('当前筛选条件下没有数据',
-                                style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant)),
-                          ],
-                        ),
-                      )
-                    : ListView.builder(
-                        padding: EdgeInsets.zero,
-                        itemCount: _records.length + 1,
-                        itemBuilder: (context, index) {
-                          if (index == 0) {
-                            return TrendChartSection(
-                              metrics: _metrics,
-                              selectedMetricIndex: _selectedMetricIndex,
-                              records: _records,
-                              onMetricChanged: (i) {
-                                setState(() => _selectedMetricIndex = i);
-                              },
-                            );
-                          }
-                          final record = _records[index - 1];
-                          return RecordItem(
-                            record: record,
-                            isLast: index == _records.length,
-                          );
-                        },
-                      ),
-          ),
-        ],
+      body: Builder(
+        builder: (context) {
+          final isDesktop = Responsive.isDesktop(context);
+          if (_loading) {
+            return const Center(child: CircularProgressIndicator());
+          }
+          if (_records.isEmpty) {
+            return Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.inbox_outlined,
+                      size: 48,
+                      color: Theme.of(context).colorScheme.onSurfaceVariant),
+                  const SizedBox(height: 12),
+                  Text('当前筛选条件下没有数据',
+                      style: TextStyle(
+                          color: Theme.of(context)
+                              .colorScheme
+                              .onSurfaceVariant)),
+                ],
+              ),
+            );
+          }
+
+          if (isDesktop) {
+            return SingleChildScrollView(
+              padding: const EdgeInsets.all(16),
+              child: _buildDesktopBody(context),
+            );
+          }
+
+          return Column(
+            children: [
+              QueryForm(
+                startDate: _startDate,
+                endDate: _endDate,
+                limit: _limit,
+                descending: _descending,
+                loading: _loading,
+                onPickStartDate: () => _pickDate(isStart: true),
+                onPickEndDate: () => _pickDate(isStart: false),
+                onLimitChanged: (value) {
+                  if (value != null) setState(() => _limit = value);
+                },
+                onDescendingChanged: (value) {
+                  if (value != null) setState(() => _descending = value);
+                },
+                onQuery: () => _loadRecords(forceRefresh: true),
+              ),
+              Expanded(child: _buildRecordList(context)),
+            ],
+          );
+          },
       ),
+    );
+  }
+
+  Widget _buildDesktopBody(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        QueryForm(
+          startDate: _startDate,
+          endDate: _endDate,
+          limit: _limit,
+          descending: _descending,
+          loading: _loading,
+          onPickStartDate: () => _pickDate(isStart: true),
+          onPickEndDate: () => _pickDate(isStart: false),
+          onLimitChanged: (value) {
+            if (value != null) setState(() => _limit = value);
+          },
+          onDescendingChanged: (value) {
+            if (value != null) setState(() => _descending = value);
+          },
+          onQuery: () => _loadRecords(forceRefresh: true),
+        ),
+        const SizedBox(height: 16),
+        Expanded(
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                flex: 3,
+                child: SingleChildScrollView(
+                  child: TrendChartSection(
+                    metrics: _metrics,
+                    selectedMetricIndex: _selectedMetricIndex,
+                    records: _records,
+                    onMetricChanged: (i) {
+                      setState(() => _selectedMetricIndex = i);
+                    },
+                  ),
+                ),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                flex: 2,
+                child: _buildRecordList(context),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildRecordList(BuildContext context) {
+    return ListView.builder(
+      padding: EdgeInsets.zero,
+      itemCount: _records.length,
+      itemBuilder: (context, index) {
+        final record = _records[index];
+        return RecordItem(
+          record: record,
+          isLast: index == _records.length - 1,
+        );
+      },
     );
   }
 }

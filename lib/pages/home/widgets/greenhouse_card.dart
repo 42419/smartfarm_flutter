@@ -1,3 +1,4 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 
 import '../../../../models/crop.dart';
@@ -51,6 +52,7 @@ class GreenhouseCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final hasImg = crop?.cropImg != null && crop!.cropImg!.isNotEmpty;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       decoration: BoxDecoration(
@@ -60,6 +62,33 @@ class GreenhouseCard extends StatelessWidget {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
+          if (hasImg)
+            Padding(
+              padding: const EdgeInsets.only(right: 12),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(8),
+                child: CachedNetworkImage(
+                  imageUrl: crop!.cropImg!,
+                  width: 64,
+                  height: 64,
+                  fit: BoxFit.cover,
+                  placeholder: (_, _) => Container(
+                    width: 64,
+                    height: 64,
+                    color: mainColor.withValues(alpha: 0.1),
+                    child: Icon(Icons.image,
+                        size: 24, color: mainColor.withValues(alpha: 0.3)),
+                  ),
+                  errorWidget: (_, _, _) => Container(
+                    width: 64,
+                    height: 64,
+                    color: mainColor.withValues(alpha: 0.1),
+                    child: Icon(Icons.eco,
+                        size: 24, color: mainColor.withValues(alpha: 0.3)),
+                  ),
+                ),
+              ),
+            ),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,

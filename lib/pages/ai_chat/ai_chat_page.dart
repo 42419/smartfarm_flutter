@@ -8,6 +8,7 @@ import '../../services/ai_conversation_service.dart';
 import '../../services/auth_service.dart';
 import '../../services/coze_service.dart';
 import '../../services/device_manager.dart';
+import '../../utils/responsive.dart';
 import 'models/chat_message.dart';
 import 'widgets/chat_input_bar.dart';
 import 'widgets/history_sheet.dart';
@@ -478,15 +479,18 @@ class _AiChatPageState extends State<AiChatPage> {
           const SizedBox(width: 4),
         ],
       ),
-      body: _messages.isEmpty
-          ? WelcomeView(
-              suggestions: _suggestions,
-              colorScheme: colorScheme,
-              isDark: isDark,
-              onSuggestionTap: _onSuggestionTap,
-              messages: _messages,
-            )
-          : _buildChatList(colorScheme, isDark),
+      body: Responsive.constrainedBody(
+        context,
+        _messages.isEmpty
+            ? WelcomeView(
+                suggestions: _suggestions,
+                colorScheme: colorScheme,
+                isDark: isDark,
+                onSuggestionTap: _onSuggestionTap,
+                messages: _messages,
+              )
+            : _buildChatList(colorScheme, isDark),
+      ),
       resizeToAvoidBottomInset: false,
       bottomNavigationBar: ChatInputBar(
         controller: _inputController,

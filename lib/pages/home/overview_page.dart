@@ -4,8 +4,8 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import '../../models/crop.dart';
 import '../../utils/responsive.dart';
+import '../../models/crop.dart';
 import '../../services/auth_service.dart';
 import '../../config/config.dart';
 import '../../services/crop_service.dart';
@@ -34,12 +34,9 @@ class _OverviewPageState extends State<OverviewPage> {
   double? _avgSoilMoisture;
   DateTime? _envUpdateTime;
   Timer? _refreshTimer;
-  bool _hasUnhandledAlerts = false;
   bool _weatherRefreshing = false;
 
   static const _cacheKey = 'env_avg_cache';
-  static const _dismissedAlertKey = 'dismissed_alert_ids';
-  static const _baseAlertIds = ['alert_1', 'alert_2', 'alert_3'];
 
   @override
   void initState() {
@@ -47,7 +44,6 @@ class _OverviewPageState extends State<OverviewPage> {
     _loadCrops();
     _loadCachedEnvData();
     _loadEnvAverages();
-    _loadAlertBadge();
     WeatherService.instance.loadCached().then((_) {
       if (mounted) setState(() {});
     });
@@ -94,24 +90,6 @@ class _OverviewPageState extends State<OverviewPage> {
       'time': _envUpdateTime?.toIso8601String(),
     });
     await prefs.setString(_cacheKey, json);
-  }
-
-  Future<void> _loadAlertBadge() async {
-    final prefs = await SharedPreferences.getInstance();
-    final raw = prefs.getString(_dismissedAlertKey);
-    if (raw == null) {
-      if (mounted) setState(() => _hasUnhandledAlerts = true);
-      return;
-    }
-    try {
-      final list = jsonDecode(raw) as List<dynamic>;
-      final dismissed = list.cast<String>().toSet();
-      final hasUnhandled =
-          _baseAlertIds.any((id) => !dismissed.contains(id));
-      if (mounted) setState(() => _hasUnhandledAlerts = hasUnhandled);
-    } catch (_) {
-      if (mounted) setState(() => _hasUnhandledAlerts = true);
-    }
   }
 
   Future<void> _loadEnvAverages() async {
@@ -230,33 +208,14 @@ class _OverviewPageState extends State<OverviewPage> {
         ),
         actions: [
           IconButton(
-            icon: Stack(
-              clipBehavior: Clip.none,
-              children: [
-                Icon(Icons.notifications_none,
-                    color: Theme.of(context).colorScheme.onSurface),
-                if (_hasUnhandledAlerts)
-                  Positioned(
-                    right: 2,
-                    top: 2,
-                    child: Container(
-                      width: 8,
-                      height: 8,
-                      decoration: BoxDecoration(
-                        color: Colors.redAccent,
-                        shape: BoxShape.circle,
-                      ),
-                    ),
-                  ),
-              ],
-            ),
+            icon: Icon(Icons.notifications_none,
+                color: Theme.of(context).colorScheme.onSurface),
             onPressed: () async {
               await Navigator.of(context).push(
                 MaterialPageRoute(
                   builder: (context) => const AlertCenterPage(),
                 ),
               );
-              _loadAlertBadge();
             },
           ),
           const SizedBox(width: 8),
@@ -264,12 +223,18 @@ class _OverviewPageState extends State<OverviewPage> {
       ),
       body: Builder(
         builder: (context) {
+          final isDesktop = Responsive.isDesktop(context);
           final isLarge = Responsive.isLargeScreen(context);
+
           return SingleChildScrollView(
-            padding: const EdgeInsets.all(16.0),
-            child: isLarge
-                ? _buildLandscapeContent(context, w)
-                : _buildPortraitContent(context, w),
+            padding: isDesktop
+                ? const EdgeInsets.all(24.0)
+                : const EdgeInsets.all(16.0),
+            child: isDesktop
+                ? _buildDesktopContent(context, w)
+                : isLarge
+                    ? _buildLandscapeContent(context, w)
+                    : _buildPortraitContent(context, w),
           );
         },
       ),
@@ -363,6 +328,112 @@ class _OverviewPageState extends State<OverviewPage> {
     );
   }
 
+  Widget _buildDesktopContent(BuildContext context, WeatherService w) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _buildDesktopStatsRow(context),
+        const SizedBox(height: 24),
+        Row(
+          children: [
+            const Text('环境数据',
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+            const SizedBox(width: 12),
+            Text(_formatTimeAgo(),
+                style: TextStyle(
+                    fontSize: 12,
+                    color: Theme.of(context).colorScheme.onSurfaceVariant)),
+            const Spacer(),
+          ],
+        ),
+        const SizedBox(height: 12),
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(
+              flex: 3,
+              child: Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+                decoration: BoxDecoration(
+                  color: Theme.of(context).colorScheme.surfaceContainerLow,
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: EnvDataSection(
+                  temperature: _temperatureText,
+                  humidity: _humidityText,
+                  illumination: _illuminationText,
+                  soilMoisture: _soilMoistureText,
+                ),
+              ),
+            ),
+            const SizedBox(width: 20),
+            Expanded(
+              flex: 2,
+              child: Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+                decoration: BoxDecoration(
+                  color: Theme.of(context).colorScheme.surfaceContainerLow,
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: WeatherCard(
+                  city: w.city,
+                  weatherText: w.weatherText,
+                  weatherIcon: w.weatherIcon(),
+                  weatherTemp: w.weatherTemp,
+                  weatherWind: w.weatherWind,
+                  weatherHumidity: w.weatherHumidity,
+                  accentColor: w.accentColor,
+                  isRefreshing: _weatherRefreshing,
+                  onRefresh: _refreshWeather,
+                ),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 28),
+        _buildFarmSection(context),
+        const SizedBox(height: 20),
+      ],
+    );
+  }
+
+  Widget _buildDesktopStatsRow(BuildContext context) {
+    return Row(
+      children: [
+        Expanded(
+          child: _buildStatusCard(
+            '在线设备', '42', '全部在线',
+            Icons.developer_board, Colors.blue, Colors.green,
+          ),
+        ),
+        const SizedBox(width: 16),
+        Expanded(
+          child: _buildStatusCard(
+            '告警设备', '3', '需紧急处理',
+            Icons.warning_amber_rounded, Colors.redAccent, Colors.redAccent,
+            isAlert: true,
+          ),
+        ),
+        const SizedBox(width: 16),
+        Expanded(
+          child: _buildStatusCard(
+            '大棚总数', '${_crops.length}', '${_crops.where((c) => c.health != null && (c.health!.contains('优秀') || c.health!.contains('良好'))).length}个健康',
+            Icons.agriculture, const Color(0xFF1565C0), Colors.green,
+          ),
+        ),
+        const SizedBox(width: 16),
+        Expanded(
+          child: _buildStatusCard(
+            '环境状态', '正常', _avgTemperature != null ? '均温${_avgTemperature!.toStringAsFixed(1)}°' : '--',
+            Icons.eco, Colors.green, Colors.green,
+          ),
+        ),
+      ],
+    );
+  }
+
   Widget _buildPortraitContent(BuildContext context, WeatherService w) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -438,6 +509,7 @@ class _OverviewPageState extends State<OverviewPage> {
 
   Widget _buildFarmSection(BuildContext context) {
     final isLarge = Responsive.isLargeScreen(context);
+    final isDesktop = Responsive.isDesktop(context);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -460,48 +532,77 @@ class _OverviewPageState extends State<OverviewPage> {
           ],
         ),
         const SizedBox(height: 12),
-        SizedBox(
-          height: isLarge ? 400 : 250,
-          child: _loading
-              ? const Center(child: CircularProgressIndicator())
-              : _crops.isEmpty
-                  ? const Center(child: Text('暂无大棚数据'))
-                  : ListView.builder(
-                      physics: const BouncingScrollPhysics(),
-                      padding: EdgeInsets.zero,
-                      itemCount: _crops.length,
-                      itemBuilder: (context, index) {
-                        final crop = _crops[index];
-                        final info = getHealthInfo(context, crop.health);
-                        return Padding(
-                          padding: EdgeInsets.only(
-                            bottom: index < _crops.length - 1 ? 10 : 0,
-                          ),
-                          child: GestureDetector(
-                            onTap: () {
-                              Navigator.of(context).push(
-                                MaterialPageRoute(
-                                  builder: (context) => CropDetailPage(
-                                    crop: crop,
-                                    greenhouseIndex: index,
-                                  ),
-                                ),
-                              );
-                            },
-                            child: GreenhouseCard(
-                              title: '${index + 1}号大棚 - ${crop.cropName}',
-                              subtitle: crop.health ?? '状态未知',
-                              bgColor: info.bgColor,
-                              mainColor: info.mainColor,
-                              icons: relevantIcons(crop),
-                              crop: crop,
-                            ),
-                          ),
-                        );
-                      },
-                    ),
-        ),
+        _loading
+            ? const Center(child: CircularProgressIndicator())
+            : _crops.isEmpty
+                ? const Center(child: Text('暂无大棚数据'))
+                : isDesktop
+                    ? _buildCropGrid(context)
+                    : SizedBox(
+                        height: isLarge ? 400 : 250,
+                        child: _buildCropList(context),
+                      ),
       ],
+    );
+  }
+
+  Widget _buildCropList(BuildContext context) {
+    return ListView.builder(
+      physics: const BouncingScrollPhysics(),
+      padding: EdgeInsets.zero,
+      itemCount: _crops.length,
+      itemBuilder: (context, index) {
+        final crop = _crops[index];
+        return Padding(
+          padding: EdgeInsets.only(
+            bottom: index < _crops.length - 1 ? 10 : 0,
+          ),
+          child: _buildCropItem(context, crop, index),
+        );
+      },
+    );
+  }
+
+  Widget _buildCropGrid(BuildContext context) {
+    final crossAxisCount = _crops.length <= 2 ? _crops.length : 3;
+    return GridView.builder(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: crossAxisCount,
+        mainAxisSpacing: 10,
+        crossAxisSpacing: 10,
+        childAspectRatio: _crops.first.cropImg != null ? 3.0 : 4.5,
+      ),
+      itemCount: _crops.length,
+      itemBuilder: (context, index) {
+        final crop = _crops[index];
+        return _buildCropItem(context, crop, index);
+      },
+    );
+  }
+
+  Widget _buildCropItem(BuildContext context, Crop crop, int index) {
+    final info = getHealthInfo(context, crop.health);
+    return GestureDetector(
+      onTap: () {
+        Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (context) => CropDetailPage(
+              crop: crop,
+              greenhouseIndex: index,
+            ),
+          ),
+        );
+      },
+      child: GreenhouseCard(
+        title: '${index + 1}号大棚 - ${crop.cropName}',
+        subtitle: crop.health ?? '状态未知',
+        bgColor: info.bgColor,
+        mainColor: info.mainColor,
+        icons: relevantIcons(crop),
+        crop: crop,
+      ),
     );
   }
 

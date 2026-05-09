@@ -48,7 +48,7 @@ class WeatherService {
     }));
   }
 
-  static const _cityAdcode = '410200';
+  static const _cityAdcode = '410202';
 
   Future<void> fetch() async {
     try {

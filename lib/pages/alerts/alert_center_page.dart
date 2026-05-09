@@ -1,9 +1,7 @@
 import 'dart:async';
-import 'dart:convert';
 import 'dart:math';
 
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../services/app_feedback.dart';
 import '../../services/device_manager.dart';
@@ -27,9 +25,7 @@ class _AlertCenterPageState extends State<AlertCenterPage> {
   Timer? _generateTimer;
   final _random = Random();
 
-  static const String _dismissedKey = 'dismissed_alert_ids';
-
-  static final List<AlertData> _baseAlerts = [
+static final List<AlertData> _baseAlerts = [
     AlertData(
       id: 'alert_1',
       borderColorKey: 'red',
@@ -98,7 +94,6 @@ class _AlertCenterPageState extends State<AlertCenterPage> {
   @override
   void initState() {
     super.initState();
-    _loadDismissed();
     _scheduleNextGenerate();
   }
 
@@ -108,44 +103,8 @@ class _AlertCenterPageState extends State<AlertCenterPage> {
     super.dispose();
   }
 
-  Future<void> _loadDismissed() async {
-    final prefs = await SharedPreferences.getInstance();
-    final migrated = prefs.getBool('alert_migrated_v2') ?? false;
-    if (!migrated) {
-      final raw = prefs.getString(_dismissedKey);
-      if (raw != null) {
-        try {
-          final list = jsonDecode(raw) as List<dynamic>;
-          final ids = list.cast<String>().toSet();
-          final allBaseDismissed = ids.contains('alert_1') &&
-              ids.contains('alert_2') &&
-              ids.contains('alert_3');
-          if (allBaseDismissed) {
-            ids.removeAll({'alert_1', 'alert_2', 'alert_3'});
-          }
-          _dismissedIds.addAll(ids);
-          await prefs.setString(
-              _dismissedKey, jsonEncode(_dismissedIds.toList()));
-        } catch (_) {}
-      }
-      await prefs.setBool('alert_migrated_v2', true);
-    } else {
-      final raw = prefs.getString(_dismissedKey);
-      if (raw != null) {
-        try {
-          final list = jsonDecode(raw) as List<dynamic>;
-          _dismissedIds.addAll(list.cast<String>());
-        } catch (_) {}
-      }
-    }
-    if (mounted) setState(() {});
-  }
-
-  Future<void> _dismissAlert(String id) async {
+  void _dismissAlert(String id) {
     _dismissedIds.add(id);
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(
-        _dismissedKey, jsonEncode(_dismissedIds.toList()));
     _generatedAlerts.removeWhere((a) => a.id == id);
     if (mounted) setState(() {});
   }

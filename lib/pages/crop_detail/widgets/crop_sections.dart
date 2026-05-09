@@ -1,3 +1,4 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import '../../../models/crop.dart';
 import '../../../widgets/common/section_card.dart';
@@ -40,12 +41,23 @@ class CropHeader extends StatelessWidget {
           if (hasImage)
             ClipRRect(
               borderRadius: BorderRadius.circular(16),
-              child: Image.network(
-                crop.cropImg!,
+              child: CachedNetworkImage(
+                imageUrl: crop.cropImg!,
                 height: 160,
                 width: double.infinity,
                 fit: BoxFit.cover,
-                errorBuilder: (_, _, _) => _buildIconCircle(context),
+                placeholder: (_, _) => Container(
+                  height: 160,
+                  color: info.mainColor.withValues(alpha: 0.05),
+                  child: const Center(
+                    child: SizedBox(
+                      width: 24,
+                      height: 24,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    ),
+                  ),
+                ),
+                errorWidget: (_, _, _) => _buildIconCircle(context),
               ),
             )
           else

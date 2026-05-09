@@ -722,7 +722,7 @@ class _DeviceControlPageState extends State<DeviceControlPage>
   Widget _buildQuickOps(
       BuildContext context, DeviceManager dm, bool fan1, bool light2) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(0, 0, 0, 0),
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 0),
       child: Row(
         children: [
           Expanded(
@@ -772,7 +772,7 @@ class _DeviceControlPageState extends State<DeviceControlPage>
   Widget _buildDeviceList(BuildContext context, DeviceManager dm, bool fan1,
       bool light2, String currentTemp, String currentIllumination) {
     return ListView(
-      padding: const EdgeInsets.only(left: 0, right: 0, top: 0, bottom: 20),
+      padding: const EdgeInsets.only(left: 16, right: 16, top: 0, bottom: 20),
       children: [
         if (_selectedTabIndex == 0 || _selectedTabIndex == 1) ...[
           const SectionHeader(
