@@ -252,9 +252,8 @@ class DeviceManager extends ChangeNotifier {
       return;
     }
 
-    // 忽略命令发起前或保护窗口内回放的旧状态，避免把乐观更新刷回去。
-    if (messageTimestampMs <= pending.commandIssuedAtMs &&
-        messageTimestampMs <= pending.protectUntilMs) {
+    // 消息时间戳早于命令发出时间，说明是命令发出前的旧数据，忽略。
+    if (messageTimestampMs <= pending.commandIssuedAtMs) {
       return;
     }
 
@@ -265,9 +264,15 @@ class DeviceManager extends ChangeNotifier {
       return;
     }
 
+    // 保护窗口内收到不匹配的状态：设备可能尚未完成切换，忽略此中间状态。
+    if (DateTime.now().millisecondsSinceEpoch <= pending.protectUntilMs) {
+      return;
+    }
+
+    // 保护窗口已过，接受实际状态（命令可能失败）
     onAccept(nextStatus);
     _clearPendingCommand(commandName);
-    if (!silentMode) showAppToast('${pending.deviceLabel}操作失败');
+    // if (!silentMode) showAppToast('${pending.deviceLabel}操作失败');
   }
 
   void _failPendingCommand(
@@ -289,7 +294,7 @@ class DeviceManager extends ChangeNotifier {
     }
 
     _clearPendingCommand(commandName);
-    if (!silentMode) showAppToast('${pending.deviceLabel}操作失败');
+    // if (!silentMode) showAppToast('${pending.deviceLabel}操作失败');
   }
 
   void _clearPendingCommand(String commandName) {

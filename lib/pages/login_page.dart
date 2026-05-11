@@ -12,8 +12,8 @@ class LoginPage extends StatefulWidget {
 }
 
 class _LoginPageState extends State<LoginPage> {
-  final TextEditingController _accountController = TextEditingController();
-  final TextEditingController _passwordController = TextEditingController();
+  final TextEditingController _accountController = TextEditingController(text: "yunfei");
+  final TextEditingController _passwordController = TextEditingController(text: "yunfeiii");
   bool _obscureText = true;
   bool _loading = false;
 
@@ -178,23 +178,23 @@ class _LoginPageState extends State<LoginPage> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Text(
-          "欢迎登录",
-          style: TextStyle(
-            fontSize: 26,
-            fontWeight: FontWeight.bold,
-            color: cs.onSurface,
-          ),
-        ),
-        const SizedBox(height: 8),
-        Text(
-          "登录您的禾寻账号",
-          style: TextStyle(
-            fontSize: 14,
-            color: cs.onSurfaceVariant,
-          ),
-        ),
-        const SizedBox(height: 28),
+        // Text(
+        //   "欢迎登录",
+        //   style: TextStyle(
+        //     fontSize: 26,
+        //     fontWeight: FontWeight.bold,
+        //     color: cs.onSurface,
+        //   ),
+        // ),
+        // const SizedBox(height: 8),
+        // Text(
+        //   "登录您的禾寻账号",
+        //   style: TextStyle(
+        //     fontSize: 14,
+        //     color: cs.onSurfaceVariant,
+        //   ),
+        // ),
+        // const SizedBox(height: 28),
         Container(
           decoration: BoxDecoration(
             color: cs.surface,
