@@ -1,10 +1,11 @@
-import 'dart:convert';
 import 'dart:async';
+
 import 'package:flutter/foundation.dart';
-import 'package:dio/dio.dart';
-import 'package:web_socket_channel/web_socket_channel.dart';
+
 import '../config/config.dart';
+import 'alert_prediction_service.dart';
 import 'app_feedback.dart';
+import 'mqtt_service.dart';
 import 'sensor_history_service.dart';
 
 class _PendingDeviceCommand {
@@ -25,6 +26,7 @@ class _PendingDeviceCommand {
 
 class DeviceManager extends ChangeNotifier {
   static const int _commandProtectWindowMs = 5000;
+  static const int _dataTimeoutSeconds = 5;
   static final DeviceManager _instance = DeviceManager._internal();
   static DeviceManager get instance => _instance;
 
@@ -32,59 +34,63 @@ class DeviceManager extends ChangeNotifier {
     _init();
   }
 
-  final Dio _dio = Dio();
-  String _token = '';
-  WebSocketChannel? _channel;
-
-  // 全局共享的设备状态数据
   String temperature = '--';
   String humidity = '--';
   String illumination = '--';
-  bool motorStatus = false; // 通风设备#001
-  bool lightStatus = false; // 补光设备#001
-  bool pump1Status = false; // 灌溉泵#001
-  bool pump2Status = false; // 灌溉泵#002
+  bool motorStatus = false;
+  bool lightStatus = false;
+  bool pump1Status = false;
+  bool pump2Status = false;
   bool silentMode = false;
-  final Map<String, _PendingDeviceCommand> _pendingCommands = {};
-  final Map<String, Timer> _pendingCommandTimers = {};
 
-  Future<void> _init() async {
-    await _getToken();
-    _connectWebSocket();
+  bool isDeviceOnline = false;
+  bool autoState = false;
+
+  int _lastStatusToastMs = 0;
+  static const int _toastCooldownMs = 30000;
+
+  void _showStatusToast(String msg) {
+    final now = DateTime.now().millisecondsSinceEpoch;
+    if (now - _lastStatusToastMs < _toastCooldownMs) return;
+    _lastStatusToastMs = now;
+    // showAppToast(msg);
   }
 
-  // 1. 获取Token
-  Future<void> _getToken() async {
+  final Map<String, _PendingDeviceCommand> _pendingCommands = {};
+  final Map<String, Timer> _pendingCommandTimers = {};
+  Timer? _dataWatchdog;
+  Timer? _predictionTimer;
+  StreamSubscription<Map<String, dynamic>>? _reportSub;
+  StreamSubscription<Map<String, dynamic>>? _statusSub;
+
+  Future<void> _init() async {
+    await MqttService.instance.connect();
+    _reportSub = MqttService.instance.reportStream.listen(_onReportMessage);
+    _statusSub = MqttService.instance.statusStream.listen(_onStatusMessage);
+    _startPredictionLoop();
+  }
+
+  void _startPredictionLoop() {
+    _predictionTimer?.cancel();
+    _predictionTimer = Timer.periodic(const Duration(minutes: 5), (_) {
+      _runPredictionAnalysis();
+    });
+    _runPredictionAnalysis();
+  }
+
+  Future<void> _runPredictionAnalysis() async {
     try {
-      var response = await _dio.post(
-          Config.iamAuthUrl,
-          data: {
-            "auth": {
-              "identity": {
-                "methods": ["password"],
-                "password": {
-                  "user": {
-                    "name": Config.iamUser,
-                    "password": Config.iamPassword,
-                    "domain": {
-                      "name": Config.iamDomain
-                    }
-                  }
-                }
-              },
-              "scope": {
-                "project": {
-                  "name": Config.iamProject
-                }
-              }
-            }
-          }
+      final points = await SensorHistoryService.instance.fetchRecentPoints(
+        greenhouse: Config.supabaseGreenhouse,
+        hours: 12,
       );
-      _token = response.headers.value('x-subject-token') ?? '';
-      debugPrint('DeviceManager: Token fetched successfully');
-    } catch (e) {
-      debugPrint('DeviceManager Error fetching token: $e');
-    }
+      if (points.isEmpty) return;
+
+      final newAlerts = await AlertPredictionService.instance.analyzeAndPredict(points);
+      for (final alert in newAlerts) {
+        AlertPredictionService.instance.addAlert(alert);
+      }
+    } catch (_) {}
   }
 
   void toggleAllIrrigation(bool on) {
@@ -93,17 +99,11 @@ class DeviceManager extends ChangeNotifier {
     notifyListeners();
   }
 
-  // 2. 控制硬件设备
   Future<void> controlDevice(String commandName, String switchName) async {
-    if (_token.isEmpty) {
-      await _getToken();
-    }
-
     try {
       final bool expectedStatus = switchName == 'ON';
       final int nowMs = DateTime.now().millisecondsSinceEpoch;
 
-      // 乐观更新UI，先在本地改变状态让开关立刻产生反应
       if (commandName == 'motor_control') {
         motorStatus = expectedStatus;
       } else if (commandName == 'light_control') {
@@ -117,105 +117,107 @@ class DeviceManager extends ChangeNotifier {
       );
       notifyListeners();
 
-      var response = await _dio.post(
-          Config.iotCommandUrl,
-          options: Options(
-              headers: {
-                'Content-Type': 'application/json',
-                'X-Auth-Token': _token,
-                'Instance-Id': Config.iotInstanceId,
-              }
-          ),
-          data: {
-            "service_id": Config.iotServiceId,
-            "command_name": commandName,
-            "paras": {
-              "switch": switchName
-            }
-          }
-      );
-      debugPrint('DeviceManager: Command sent - ${response.data}');
+      MqttService.instance.sendCommand(commandName, switchName);
+      debugPrint('DeviceManager: MQTT command sent - $commandName → $switchName');
     } catch (e) {
       _failPendingCommand(commandName, revertOptimisticState: true);
-      debugPrint('DeviceManager: Error controlling device: $e');
+      debugPrint('DeviceManager: Error sending command: $e');
     }
   }
 
-  // 3. 连接WebSocket实时获取数据
-  void _connectWebSocket() {
-    try {
-      _channel = WebSocketChannel.connect(
-        Uri.parse(Config.webSocketUrl),
-      );
-      _channel!.stream.listen((message) {
-        if (message is String) {
-          try {
-            var decoded = jsonDecode(message);
-            dynamic props;
-            int messageTimestampMs = DateTime.now().millisecondsSinceEpoch;
-            if (decoded is List && decoded.isNotEmpty) {
-              props = decoded[0]['properties'];
-            } else if (decoded is Map && decoded['data'] != null && decoded['data'].isNotEmpty) {
-              props = decoded['data'][0]['properties'];
-              final dynamic rawTimestamp = decoded['timestamp'];
-              if (rawTimestamp is int) {
-                messageTimestampMs = rawTimestamp;
-              } else if (rawTimestamp is String) {
-                messageTimestampMs = int.tryParse(rawTimestamp) ?? messageTimestampMs;
-              }
-            }
+  void _onReportMessage(Map<String, dynamic> data) {
+    int messageTimestampMs = DateTime.now().millisecondsSinceEpoch;
 
-            if (props != null) {
-              // 更新解析数据
-              if (props['motorStatus'] != null) {
-                _applyIncomingDeviceStatus(
-                  commandName: 'motor_control',
-                  nextStatus: props['motorStatus'] == 'ON',
-                  messageTimestampMs: messageTimestampMs,
-                  onAccept: (value) => motorStatus = value,
-                );
+    _dataWatchdog?.cancel();
+    if (!isDeviceOnline) {
+      isDeviceOnline = true;
+      if (!silentMode) _showStatusToast('设备已上线');
+      notifyListeners();
+    }
+    _dataWatchdog = Timer(const Duration(seconds: _dataTimeoutSeconds), () {
+      if (isDeviceOnline) {
+        isDeviceOnline = false;
+        if (!silentMode) _showStatusToast('设备已离线');
+        notifyListeners();
+      }
+    });
+
+    if (data['motorStatus'] != null) {
+      _applyIncomingDeviceStatus(
+        commandName: 'motor_control',
+        nextStatus: data['motorStatus'] == 'ON',
+        messageTimestampMs: messageTimestampMs,
+        onAccept: (value) => motorStatus = value,
+      );
+    }
+    if (data['lightStatus'] != null) {
+      _applyIncomingDeviceStatus(
+        commandName: 'light_control',
+        nextStatus: data['lightStatus'] == 'ON',
+        messageTimestampMs: messageTimestampMs,
+        onAccept: (value) => lightStatus = value,
+      );
+    }
+    if (data['temperature'] != null) {
+      temperature =
+          data['temperature'].toString().replaceAll('℃', '').trim();
+    }
+    if (data['humidity'] != null) {
+      humidity =
+          data['humidity'].toString().replaceAll('%', '').trim();
+    }
+    if (data['illumination'] != null) {
+      illumination = data['illumination']
+          .toString()
+          .replaceAll(RegExp(r'[L|l]ux'), '')
+          .trim();
+    }
+    if (data['autoStatus'] != null) {
+      autoState = data['autoStatus'] == 'ON';
+    }
+
+    unawaited(
+      SensorHistoryService.instance.recordReading(
+        greenhouse: Config.supabaseGreenhouse,
+        temperature: _parseNumericValue(data['temperature']),
+        humidity: _parseNumericValue(data['humidity']),
+        illumination: _parseNumericValue(data['illumination']),
+        soilMoisture: _parseNumericValue(data['soilMoisture']),
+        co2: _parseNumericValue(data['co2']),
+        phValue: _parseNumericValue(data['ph']),
+      ),
+    );
+
+    notifyListeners();
+  }
+
+  void _onStatusMessage(Map<String, dynamic> data) {
+    if (data['status'] != null) {
+      final wasOnline = isDeviceOnline;
+      isDeviceOnline = data['status'] == 'online';
+      if (data['status'] == 'online') {
+        _dataWatchdog?.cancel();
+        _dataWatchdog = Timer(
+          const Duration(seconds: _dataTimeoutSeconds),
+          () {
+              if (isDeviceOnline) {
+                isDeviceOnline = false;
+                if (!silentMode) _showStatusToast('设备已离线');
+                notifyListeners();
               }
-              if (props['lightStatus'] != null) {
-                _applyIncomingDeviceStatus(
-                  commandName: 'light_control',
-                  nextStatus: props['lightStatus'] == 'ON',
-                  messageTimestampMs: messageTimestampMs,
-                  onAccept: (value) => lightStatus = value,
-                );
-              }
-              if (props['temperature'] != null) {
-                temperature = props['temperature'].toString().replaceAll('℃', '').trim();
-              }
-              if (props['humidity'] != null) {
-                humidity = props['humidity'].toString().replaceAll('%', '').trim();
-              }
-              if (props['illumination'] != null) {
-                // 忽略大小写去掉 Lux
-                illumination = props['illumination'].toString().replaceAll(RegExp(r'[L|l]ux'), '').trim();
-              }
-              unawaited(
-                SensorHistoryService.instance.recordReading(
-                  greenhouse: Config.supabaseGreenhouse,
-                  temperature: _parseNumericValue(props['temperature']),
-                  humidity: _parseNumericValue(props['humidity']),
-                  illumination: _parseNumericValue(props['illumination']),
-                  soilMoisture: _parseNumericValue(props['soilMoisture']),
-                  co2: _parseNumericValue(props['co2']),
-                  phValue: _parseNumericValue(props['ph']),
-                ),
-              );
-              // 数据获取成功后，通知所有页面通过addListener响应和刷新UI
-              notifyListeners();
-            }
-          } catch (e) {
-            // 解析失败不阻断服务
-          }
+            },
+          );
+        } else {
+          _dataWatchdog?.cancel();
         }
-      }, onError: (error) {
-        debugPrint("DeviceManager: WebSocket Stream Error: $error");
-      });
-    } catch (e) {
-      debugPrint("DeviceManager: WebSocket Connection Error: $e");
+        if (wasOnline != isDeviceOnline) {
+          if (!silentMode) {
+            _showStatusToast(
+              isDeviceOnline ? '设备已上线' : '设备已离线',
+            );
+        }
+        notifyListeners();
+      }
     }
   }
 
@@ -252,7 +254,6 @@ class DeviceManager extends ChangeNotifier {
       return;
     }
 
-    // 消息时间戳早于命令发出时间，说明是命令发出前的旧数据，忽略。
     if (messageTimestampMs <= pending.commandIssuedAtMs) {
       return;
     }
@@ -260,19 +261,16 @@ class DeviceManager extends ChangeNotifier {
     if (nextStatus == pending.expectedStatus) {
       onAccept(nextStatus);
       _clearPendingCommand(commandName);
-      if (!silentMode) showAppToast('${pending.deviceLabel}操作成功');
+      // if (!silentMode) showAppToast('${pending.deviceLabel}操作成功');
       return;
     }
 
-    // 保护窗口内收到不匹配的状态：设备可能尚未完成切换，忽略此中间状态。
     if (DateTime.now().millisecondsSinceEpoch <= pending.protectUntilMs) {
       return;
     }
 
-    // 保护窗口已过，接受实际状态（命令可能失败）
     onAccept(nextStatus);
     _clearPendingCommand(commandName);
-    // if (!silentMode) showAppToast('${pending.deviceLabel}操作失败');
   }
 
   void _failPendingCommand(
@@ -294,7 +292,6 @@ class DeviceManager extends ChangeNotifier {
     }
 
     _clearPendingCommand(commandName);
-    // if (!silentMode) showAppToast('${pending.deviceLabel}操作失败');
   }
 
   void _clearPendingCommand(String commandName) {
@@ -323,5 +320,14 @@ class DeviceManager extends ChangeNotifier {
 
     final match = RegExp(r'-?\d+(\.\d+)?').firstMatch(raw.toString());
     return match == null ? null : double.tryParse(match.group(0)!);
+  }
+
+  @override
+  void dispose() {
+    _dataWatchdog?.cancel();
+    _predictionTimer?.cancel();
+    _reportSub?.cancel();
+    _statusSub?.cancel();
+    super.dispose();
   }
 }

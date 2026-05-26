@@ -221,6 +221,17 @@ class _ProfilePageState extends State<ProfilePage> {
                     const SizedBox(height: 16),
                     SettingsCard(tiles: [
                       SettingTile(
+                        icon: Icons.auto_fix_high,
+                        iconColor: const Color(0xFF6C5CE7),
+                        title: '自动化规则',
+                        trailingText: '智能场景',
+                        onTap: () =>
+                            Navigator.of(context).pushNamed('/automation'),
+                      ),
+                    ]),
+                    const SizedBox(height: 16),
+                    SettingsCard(tiles: [
+                      SettingTile(
                         icon: _themeIcon,
                         iconColor: Colors.blueGrey,
                         title: '外观',
@@ -295,6 +306,17 @@ class _ProfilePageState extends State<ProfilePage> {
               title: '外观',
               trailingText: _themeLabel,
               onTap: _showThemeSheet,
+            ),
+          ]),
+          const SizedBox(height: 16),
+          SettingsCard(tiles: [
+            SettingTile(
+              icon: Icons.auto_fix_high,
+              iconColor: const Color(0xFF6C5CE7),
+              title: '自动化规则',
+              trailingText: '智能场景',
+              onTap: () =>
+                  Navigator.of(context).pushNamed('/automation'),
             ),
           ]),
           const SizedBox(height: 16),

@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 
 import '../../config/config.dart';
 import '../../models/sensor_trend_point.dart';
+import '../../services/auth_service.dart';
+import '../../services/crop_service.dart';
 import '../../utils/responsive.dart';
 import '../sensor_history/sensor_history_page.dart';
 import '../../services/device_manager.dart';
@@ -9,6 +11,16 @@ import '../../services/sensor_history_service.dart';
 import '../../widgets/common/metric_selector.dart';
 import 'widgets/data_card.dart';
 import 'widgets/trend_section.dart';
+
+class _SelectOption {
+  const _SelectOption({
+    required this.label,
+    this.expandedLabel,
+  });
+
+  final String label;
+  final String? expandedLabel;
+}
 
 class DataMonitorPage extends StatefulWidget {
   const DataMonitorPage({super.key});
@@ -23,6 +35,19 @@ class _DataMonitorPageState extends State<DataMonitorPage>
   int _selectedMetricIndex = 0;
   bool _isTrendLoading = false;
   List<SensorTrendPoint> _trendPoints = const [];
+  List<_SelectOption> _greenhouseOptions = const [
+    _SelectOption(label: '全部大棚'),
+  ];
+  late final List<_SelectOption> _farmOptions;
+  final List<_SelectOption> _indicatorOptions = const [
+    _SelectOption(label: '全部指标'),
+    _SelectOption(label: '环境指标'),
+    _SelectOption(label: '灌溉指标'),
+    _SelectOption(label: '告警优先'),
+  ];
+  String _selectedFarmLabel = '';
+  String _selectedGreenhouseLabel = '全部大棚';
+  String _selectedIndicatorLabel = '全部指标';
 
   final List<MetricOption> _metrics = const [
     MetricOption(label: '温度', color: Colors.orangeAccent, column: 'temperature'),
@@ -37,7 +62,18 @@ class _DataMonitorPageState extends State<DataMonitorPage>
   @override
   void initState() {
     super.initState();
+    final currentFarm = AuthService.instance.currentUser?.farm.trim();
+    final farmName = currentFarm != null && currentFarm.isNotEmpty
+        ? currentFarm
+        : '东郊农场';
+    _farmOptions = [
+      _SelectOption(label: farmName),
+      const _SelectOption(label: '实验农场'),
+      const _SelectOption(label: '西区农场'),
+    ];
+    _selectedFarmLabel = _farmOptions.first.label;
     DeviceManager.instance.addListener(_onDeviceUpdate);
+    _loadGreenhouseOptions();
     _loadTrendData(forceRefresh: true);
   }
 
@@ -49,6 +85,31 @@ class _DataMonitorPageState extends State<DataMonitorPage>
 
   void _onDeviceUpdate() {
     if (mounted) setState(() {});
+  }
+
+  Future<void> _loadGreenhouseOptions() async {
+    final crops = await CropService.instance.fetchCrops();
+    if (!mounted || crops.isEmpty) return;
+
+    final options = <_SelectOption>[
+      const _SelectOption(label: '全部大棚'),
+      ...List.generate(
+        crops.length,
+        (index) => _SelectOption(
+          label: '${index + 1}号大棚',
+          expandedLabel: '${index + 1}号大棚 - ${crops[index].cropName}',
+        ),
+      ),
+    ];
+
+    setState(() {
+      _greenhouseOptions = options;
+      if (!_greenhouseOptions.any(
+        (item) => item.label == _selectedGreenhouseLabel,
+      )) {
+        _selectedGreenhouseLabel = _greenhouseOptions.first.label;
+      }
+    });
   }
 
   TrendRange get _selectedRange {
@@ -114,6 +175,8 @@ class _DataMonitorPageState extends State<DataMonitorPage>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          _buildFilterBar(context),
+          const SizedBox(height: 20),
           Text('实时数据',
               style: TextStyle(
                   fontSize: 16,
@@ -232,6 +295,8 @@ class _DataMonitorPageState extends State<DataMonitorPage>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          _buildFilterBar(context),
+          const SizedBox(height: 20),
           Text('实时数据',
               style: TextStyle(
                   fontSize: 16,
@@ -281,6 +346,94 @@ class _DataMonitorPageState extends State<DataMonitorPage>
           ),
           const SizedBox(height: 30),
         ],
+      ),
+    );
+  }
+
+  Widget _buildFilterBar(BuildContext context) {
+    return Row(
+      children: [
+        Expanded(
+          child: _buildSelectChip(
+            context,
+            value: _selectedFarmLabel,
+            options: _farmOptions,
+            onChanged: (value) {
+              if (value == null) return;
+              setState(() => _selectedFarmLabel = value);
+            },
+          ),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: _buildSelectChip(
+            context,
+            value: _selectedGreenhouseLabel,
+            options: _greenhouseOptions,
+            onChanged: (value) {
+              if (value == null) return;
+              setState(() => _selectedGreenhouseLabel = value);
+            },
+          ),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: _buildSelectChip(
+            context,
+            value: _selectedIndicatorLabel,
+            options: _indicatorOptions,
+            onChanged: (value) {
+              if (value == null) return;
+              setState(() => _selectedIndicatorLabel = value);
+            },
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildSelectChip(
+    BuildContext context, {
+    required String value,
+    required List<_SelectOption> options,
+    required ValueChanged<String?> onChanged,
+  }) {
+    final cs = Theme.of(context).colorScheme;
+    return Container(
+      height: 42,
+      padding: const EdgeInsets.symmetric(horizontal: 12),
+      decoration: BoxDecoration(
+        color: cs.surfaceContainerLow,
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: DropdownButtonHideUnderline(
+        child: DropdownButton<String>(
+          value: value,
+          isExpanded: true,
+          borderRadius: BorderRadius.circular(14),
+          icon: Icon(
+            Icons.keyboard_arrow_down_rounded,
+            color: cs.onSurfaceVariant,
+          ),
+          style: TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.w500,
+            color: cs.onSurface,
+          ),
+          dropdownColor: cs.surface,
+          items: options
+              .map(
+                (option) => DropdownMenuItem<String>(
+                  value: option.label,
+                  child: Text(
+                    option.expandedLabel ?? option.label,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              )
+              .toList(),
+          onChanged: onChanged,
+        ),
       ),
     );
   }

@@ -387,4 +387,36 @@ class SensorHistoryService {
           'greenhouse': greenhouse,
         })}';
   }
+
+  Future<List<Map<String, double?>>> fetchRecentPoints({
+    required String greenhouse,
+    int hours = 12,
+  }) async {
+    final client = SupabaseService.maybeClient;
+    if (client == null) return const [];
+
+    final start = DateTime.now().toUtc().subtract(Duration(hours: hours));
+    try {
+      final rows = await client
+          .from('sensor_readings')
+          .select('recorded_at, temperature, humidity, illumination')
+          .eq('greenhouse', greenhouse)
+          .gte('recorded_at', start.toIso8601String())
+          .order('recorded_at', ascending: true);
+
+      return rows.map((row) {
+        final recordedAt =
+            DateTime.tryParse(row['recorded_at']?.toString() ?? '');
+        return <String, double?>{
+          if (recordedAt != null) 'recorded_at': recordedAt.millisecondsSinceEpoch.toDouble(),
+          'temperature': _readDouble(row['temperature']),
+          'humidity': _readDouble(row['humidity']),
+          'illumination': _readDouble(row['illumination']),
+        };
+      }).toList();
+    } catch (error) {
+      debugPrint('fetchRecentPoints failed: $error');
+      return const [];
+    }
+  }
 }

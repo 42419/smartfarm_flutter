@@ -11,6 +11,7 @@ import '../pages/register_page.dart';
 import '../pages/forgot_password_page.dart';
 import '../pages/edit_profile_page.dart';
 import '../pages/ai_chat/ai_chat_page.dart';
+import '../pages/automation/automation_page.dart';
 
 Widget getRootWidget({String initialRoute = '/login'}) {
   return ValueListenableBuilder<ThemeMode>(
@@ -74,5 +75,6 @@ Map<String, Widget Function(BuildContext)> getRootRoutes() {
     '/forgot-password': (context) => const ForgotPasswordPage(),
     '/edit-profile': (context) => const EditProfilePage(),
     '/ai-chat': (context) => const AiChatPage(),
+    '/automation': (context) => const AutomationPage(),
   };
 }

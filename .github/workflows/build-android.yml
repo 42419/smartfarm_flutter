@@ -31,18 +31,16 @@ jobs:
         run: |
           cat > lib/config/config.dart << 'CONFIGEOF'
           class Config {
-            static const String supabaseUrl = '${{ secrets.SUPABASE_URL }}';
-            static const String supabaseAnonKey = '${{ secrets.SUPABASE_ANON_KEY }}';
-            static const String supabaseGreenhouse = '${{ secrets.SUPABASE_GREENHOUSE || 'east-suburb-farm' }}';
-            static const String iamAuthUrl = '${{ secrets.IAM_AUTH_URL || 'https://iam.cn-north-4.myhuaweicloud.com/v3/auth/tokens' }}';
-            static const String iamUser = '${{ secrets.IAM_USER }}';
-            static const String iamPassword = '${{ secrets.IAM_PASSWORD }}';
-            static const String iamDomain = '${{ secrets.IAM_DOMAIN }}';
-            static const String iamProject = '${{ secrets.IAM_PROJECT || 'cn-north-4' }}';
-            static const String iotCommandUrl = '${{ secrets.IOT_COMMAND_URL }}';
-            static const String iotInstanceId = '${{ secrets.IOT_INSTANCE_ID }}';
-            static const String iotServiceId = '${{ secrets.IOT_SERVICE_ID || 'smartFarm' }}';
-            static const String webSocketUrl = '${{ secrets.WEB_SOCKET_URL }}';
+            static const String supabaseUrl = '\${{ secrets.SUPABASE_URL }}';
+            static const String supabaseAnonKey = '\${{ secrets.SUPABASE_ANON_KEY }}';
+            static const String supabaseGreenhouse = '\${{ secrets.SUPABASE_GREENHOUSE || ''east-suburb-farm'' }}';
+            static const String emqxHost = '\${{ secrets.EMQX_HOST }}';
+            static const int emqxPort = 1883;
+            static const String emqxClientId = 'smart_farm_flutter_app';
+            static const String topicReport = 'smart_farm/report';
+            static const String topicCommand = 'smart_farm/command';
+            static const String topicResponse = 'smart_farm/response';
+            static const String topicStatus = 'smart_farm/status';
           }
           CONFIGEOF
 

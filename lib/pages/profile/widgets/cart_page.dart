@@ -113,7 +113,15 @@ class _CartPageState extends State<CartPage> {
               color: item.color.withValues(alpha: 0.08),
               borderRadius: BorderRadius.circular(12),
             ),
-            child: Icon(item.icon, size: 30, color: item.color.withValues(alpha: 0.5)),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(12),
+              child: Image.asset(
+                item.imageAsset,
+                width: 56,
+                height: 56,
+                fit: BoxFit.cover,
+              ),
+            ),
           ),
           const SizedBox(width: 12),
           Expanded(

@@ -4,7 +4,9 @@ import 'dart:convert';
 import 'package:dio/dio.dart';
 
 import '../config/config.dart';
+import 'crop_service.dart';
 import 'device_manager.dart';
+import 'weather_service.dart';
 
 enum CozeEventType { delta, reasoning, completed, done, error, deviceControl }
 
@@ -204,19 +206,54 @@ class CozeService {
 
   Map<String, dynamic>? _buildSensorContext() {
     final dm = DeviceManager.instance;
+    final ws = WeatherService.instance;
     final parts = <String>[];
     if (dm.temperature != '--') parts.add('温度${dm.temperature}°C');
     if (dm.humidity != '--') parts.add('空气湿度${dm.humidity}%');
     if (dm.illumination != '--') parts.add('光照强度${dm.illumination}lux');
     parts.add('通风设备:${dm.motorStatus ? "开启" : "关闭"}');
     parts.add('补光设备:${dm.lightStatus ? "开启" : "关闭"}');
+    parts.add('灌溉泵1:${dm.pump1Status ? "开启" : "关闭"}');
+    parts.add('灌溉泵2:${dm.pump2Status ? "开启" : "关闭"}');
+
+    if (ws.fetched) {
+      parts.add('室外天气:${ws.weatherText} ${ws.weatherTemp}');
+      parts.add('室外风力:${ws.weatherWind}');
+      parts.add('室外湿度:${ws.weatherHumidity}');
+    }
+
     if (parts.length <= 2) return null;
+
+    final cropCtx = _buildCropContext();
+
     return {
-      'content': '[系统上下文] 当前温室环境数据: ${parts.join("，")}。注意：未列出的传感器表示数据暂未到达，不代表故障，请勿据此判断传感器异常。请基于以上实时数据回答用户问题。',
+      'content': [
+        '[系统上下文] 当前温室环境数据: ${parts.join("，")}。',
+        if (cropCtx != null) cropCtx,
+        '注意：未列出的传感器表示数据暂未到达，不代表故障，请勿据此判断传感器异常。',
+        '你是智慧农业AI助手，可提供专业灌溉建议、施肥方案、病虫害防治建议。',
+        '当用户询问灌溉、施肥、病虫害等问题时，请结合实时环境数据、室外天气和作物信息给出量化建议（如具体灌溉量、施肥比例、药剂浓度等）。',
+        '如果数据不足以给出精确建议，请主动指出并给出合理推测加上"建议实地确认"的提醒。',
+      ].where((s) => s.isNotEmpty).join('\n'),
       'content_type': 'text',
       'role': 'assistant',
       'type': 'answer',
     };
+  }
+
+  static String? _buildCropContext() {
+    final crops = CropService.instance.cachedCrops;
+    if (crops.isEmpty) return null;
+    final sb = StringBuffer();
+    sb.write('大棚作物信息: ');
+    for (var i = 0; i < crops.length && i < 5; i++) {
+      final c = crops[i];
+      sb.write('${i + 1}号大棚-${c.cropName}');
+      if (c.health != null) sb.write('(${c.health})');
+      if (c.plantDate != null) sb.write('[定植:${c.plantDate}]');
+      if (i < crops.length - 1 && i < 4) sb.write('; ');
+    }
+    return sb.toString();
   }
 
   String _extractError(DioException e) {

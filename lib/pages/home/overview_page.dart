@@ -9,6 +9,7 @@ import '../../models/crop.dart';
 import '../../services/auth_service.dart';
 import '../../config/config.dart';
 import '../../services/crop_service.dart';
+import '../../services/device_manager.dart';
 import '../../services/sensor_history_service.dart';
 import '../../services/weather_service.dart';
 import '../alerts/alert_center_page.dart';
@@ -16,6 +17,16 @@ import '../crop_detail/crop_detail_page.dart';
 import 'widgets/env_data_section.dart';
 import 'widgets/greenhouse_card.dart';
 import 'widgets/weather_card.dart';
+
+class _SelectOption {
+  const _SelectOption({
+    required this.label,
+    this.expandedLabel,
+  });
+
+  final String label;
+  final String? expandedLabel;
+}
 
 class OverviewPage extends StatefulWidget {
   const OverviewPage({super.key});
@@ -36,11 +47,24 @@ class _OverviewPageState extends State<OverviewPage> {
   Timer? _refreshTimer;
   bool _weatherRefreshing = false;
 
+  late final List<_SelectOption> _farmOptions;
+  String _selectedFarmLabel = '';
+
   static const _cacheKey = 'env_avg_cache';
 
   @override
   void initState() {
     super.initState();
+    final currentFarm = AuthService.instance.currentUser?.farm.trim();
+    final farmName = currentFarm != null && currentFarm.isNotEmpty
+        ? currentFarm
+        : '东郊农场';
+    _farmOptions = [
+      _SelectOption(label: farmName),
+      const _SelectOption(label: '实验农场'),
+      const _SelectOption(label: '西区农场'),
+    ];
+    _selectedFarmLabel = _farmOptions.first.label;
     _loadCrops();
     _loadCachedEnvData();
     _loadEnvAverages();
@@ -53,12 +77,18 @@ class _OverviewPageState extends State<OverviewPage> {
     _refreshTimer = Timer.periodic(const Duration(seconds: 30), (_) {
       _loadEnvAverages();
     });
+    DeviceManager.instance.addListener(_onDeviceUpdate);
   }
 
   @override
   void dispose() {
     _refreshTimer?.cancel();
+    DeviceManager.instance.removeListener(_onDeviceUpdate);
     super.dispose();
+  }
+
+  void _onDeviceUpdate() {
+    if (mounted) setState(() {});
   }
 
   Future<void> _loadCachedEnvData() async {
@@ -191,21 +221,7 @@ class _OverviewPageState extends State<OverviewPage> {
       appBar: AppBar(
         backgroundColor: Theme.of(context).colorScheme.surface,
         elevation: 0,
-        title: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              AuthService.instance.currentUser?.farm.isNotEmpty == true
-                  ? AuthService.instance.currentUser!.farm
-                  : '东郊农场',
-              style: const TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            const SizedBox(width: 4),
-          ],
-        ),
+        title: _buildFarmDropdown(context),
         actions: [
           IconButton(
             icon: Icon(Icons.notifications_none,
@@ -249,16 +265,15 @@ class _OverviewPageState extends State<OverviewPage> {
           children: [
             Expanded(
               child: _buildStatusCard(
-                '在线设备', '42', '全部在线',
+                '在线设备', _onlineDeviceCount(), _onlineDeviceStatus(),
                 Icons.developer_board, Colors.blue, Colors.green,
               ),
             ),
             const SizedBox(width: 16),
             Expanded(
               child: _buildStatusCard(
-                '告警设备', '3', '需紧急处理',
-                Icons.warning_amber_rounded, Colors.redAccent, Colors.redAccent,
-                isAlert: true,
+                '运行中', _runningDeviceCount(), _runningDeviceStatus(),
+                Icons.play_circle_fill, Colors.teal, Colors.teal,
               ),
             ),
           ],
@@ -404,16 +419,15 @@ class _OverviewPageState extends State<OverviewPage> {
       children: [
         Expanded(
           child: _buildStatusCard(
-            '在线设备', '42', '全部在线',
+            '在线设备', _onlineDeviceCount(), _onlineDeviceStatus(),
             Icons.developer_board, Colors.blue, Colors.green,
           ),
         ),
         const SizedBox(width: 16),
         Expanded(
           child: _buildStatusCard(
-            '告警设备', '3', '需紧急处理',
-            Icons.warning_amber_rounded, Colors.redAccent, Colors.redAccent,
-            isAlert: true,
+            '运行中', _runningDeviceCount(), _runningDeviceStatus(),
+            Icons.play_circle_fill, Colors.teal, Colors.teal,
           ),
         ),
         const SizedBox(width: 16),
@@ -442,16 +456,15 @@ class _OverviewPageState extends State<OverviewPage> {
           children: [
             Expanded(
               child: _buildStatusCard(
-                '在线设备', '42', '全部在线',
+                '在线设备', _onlineDeviceCount(), _onlineDeviceStatus(),
                 Icons.developer_board, Colors.blue, Colors.green,
               ),
             ),
             const SizedBox(width: 12),
             Expanded(
               child: _buildStatusCard(
-                '告警设备', '3', '需紧急处理',
-                Icons.warning_amber_rounded, Colors.redAccent, Colors.redAccent,
-                isAlert: true,
+                '运行中', _runningDeviceCount(), _runningDeviceStatus(),
+                Icons.play_circle_fill, Colors.teal, Colors.teal,
               ),
             ),
           ],
@@ -649,5 +662,81 @@ class _OverviewPageState extends State<OverviewPage> {
         ],
       ),
     );
+  }
+
+  Widget _buildFarmDropdown(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return Container(
+      height: 38,
+      padding: const EdgeInsets.symmetric(horizontal: 10),
+      decoration: BoxDecoration(
+        color: cs.surfaceContainerLow,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: DropdownButtonHideUnderline(
+        child: DropdownButton<String>(
+          value: _selectedFarmLabel,
+          isExpanded: false,
+          borderRadius: BorderRadius.circular(12),
+          icon: Icon(
+            Icons.keyboard_arrow_down_rounded,
+            color: cs.onSurfaceVariant,
+            size: 20,
+          ),
+          style: TextStyle(
+            fontSize: Theme.of(context).textTheme.titleLarge?.fontSize ?? 22,
+            fontWeight: FontWeight.bold,
+            color: cs.onSurface,
+          ),
+          dropdownColor: cs.surface,
+          items: _farmOptions
+              .map(
+                (option) => DropdownMenuItem<String>(
+                  value: option.label,
+                  child: Text(
+                    option.expandedLabel ?? option.label,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              )
+              .toList(),
+          onChanged: (value) {
+            if (value == null) return;
+            setState(() => _selectedFarmLabel = value);
+          },
+        ),
+      ),
+    );
+  }
+
+  String _onlineDeviceCount() {
+    return DeviceManager.instance.isDeviceOnline ? '4' : '0';
+  }
+
+  String _onlineDeviceStatus() {
+    return DeviceManager.instance.isDeviceOnline ? '全部在线' : '设备离线';
+  }
+
+  String _runningDeviceCount() {
+    final dm = DeviceManager.instance;
+    if (!dm.isDeviceOnline) return '0';
+    int count = 0;
+    if (dm.motorStatus) count++;
+    if (dm.lightStatus) count++;
+    if (dm.pump1Status) count++;
+    if (dm.pump2Status) count++;
+    return '$count';
+  }
+
+  String _runningDeviceStatus() {
+    final dm = DeviceManager.instance;
+    if (!dm.isDeviceOnline) return '设备离线';
+    final count = (dm.motorStatus ? 1 : 0) +
+        (dm.lightStatus ? 1 : 0) +
+        (dm.pump1Status ? 1 : 0) +
+        (dm.pump2Status ? 1 : 0);
+    if (count == 0) return '无设备运行';
+    if (count == 4) return '全部运行中';
+    return '部分运行中';
   }
 }

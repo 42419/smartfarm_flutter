@@ -12,7 +12,7 @@ class _Product {
   final double price;
   final String unit;
   final Color color;
-  final IconData icon;
+  final String imageAsset;
   final String category;
 
   const _Product({
@@ -22,7 +22,7 @@ class _Product {
     required this.price,
     required this.unit,
     required this.color,
-    required this.icon,
+    required this.imageAsset,
     required this.category,
   });
 
@@ -32,7 +32,7 @@ class _Product {
     spec: spec,
     price: price,
     unit: unit,
-    icon: icon,
+    imageAsset: imageAsset,
     color: color,
     quantity: quantity,
   );
@@ -59,7 +59,7 @@ class _AgriMallPageState extends State<AgriMallPage> {
       price: 128,
       unit: '/袋 25kg',
       color: Colors.green,
-      icon: Icons.grass,
+      imageAsset: 'assets/img/缓释复合肥.jpg',
       category: '肥料',
     ),
     _Product(
@@ -69,7 +69,7 @@ class _AgriMallPageState extends State<AgriMallPage> {
       price: 89,
       unit: '/袋 20kg',
       color: Colors.brown,
-      icon: Icons.compost,
+      imageAsset: 'assets/img/生物有机肥.jpg',
       category: '肥料',
     ),
     _Product(
@@ -79,7 +79,7 @@ class _AgriMallPageState extends State<AgriMallPage> {
       price: 256,
       unit: '/套',
       color: Colors.blueAccent,
-      icon: Icons.water_drop,
+      imageAsset: 'assets/img/滴灌带套装.jpg',
       category: '灌溉',
     ),
     _Product(
@@ -89,7 +89,7 @@ class _AgriMallPageState extends State<AgriMallPage> {
       price: 198,
       unit: '/卷',
       color: Colors.orangeAccent,
-      icon: Icons.wb_cloudy,
+      imageAsset: 'assets/img/遮阳网.jpg',
       category: '灌溉',
     ),
     _Product(
@@ -99,7 +99,7 @@ class _AgriMallPageState extends State<AgriMallPage> {
       price: 45,
       unit: '/套',
       color: Colors.lightGreen,
-      icon: Icons.eco,
+      imageAsset: 'assets/img/蔬菜种子礼包.png',
       category: '种子',
     ),
     _Product(
@@ -109,7 +109,7 @@ class _AgriMallPageState extends State<AgriMallPage> {
       price: 380,
       unit: '/个',
       color: Colors.purpleAccent,
-      icon: Icons.sensors,
+      imageAsset: 'assets/img/智能传感器.jpg',
       category: '传感器',
     ),
     _Product(
@@ -119,7 +119,7 @@ class _AgriMallPageState extends State<AgriMallPage> {
       price: 68,
       unit: '/桶',
       color: Colors.teal,
-      icon: Icons.science_outlined,
+      imageAsset: 'assets/img/液体菌肥.jpg',
       category: '肥料',
     ),
     _Product(
@@ -129,7 +129,7 @@ class _AgriMallPageState extends State<AgriMallPage> {
       price: 145,
       unit: '/箱',
       color: Colors.cyan,
-      icon: Icons.water_drop_outlined,
+      imageAsset: 'assets/img/微喷头套装.jpg',
       category: '灌溉',
     ),
     _Product(
@@ -139,7 +139,7 @@ class _AgriMallPageState extends State<AgriMallPage> {
       price: 22,
       unit: '/袋 100粒',
       color: Colors.red,
-      icon: Icons.eco_outlined,
+      imageAsset: 'assets/img/番茄种子.jpg',
       category: '种子',
     ),
     _Product(
@@ -149,7 +149,7 @@ class _AgriMallPageState extends State<AgriMallPage> {
       price: 185,
       unit: '/个',
       color: Colors.amber,
-      icon: Icons.wb_sunny_outlined,
+      imageAsset: 'assets/img/光照传感器.jpg',
       category: '传感器',
     ),
     _Product(
@@ -159,7 +159,7 @@ class _AgriMallPageState extends State<AgriMallPage> {
       price: 210,
       unit: '/组',
       color: Colors.indigo,
-      icon: Icons.inventory_2_outlined,
+      imageAsset: 'assets/img/水溶肥.jpg',
       category: '肥料',
     ),
     _Product(
@@ -169,7 +169,7 @@ class _AgriMallPageState extends State<AgriMallPage> {
       price: 320,
       unit: '/卷',
       color: Colors.lightBlue,
-      icon: Icons.cable,
+      imageAsset: 'assets/img/PE输水管.jpg',
       category: '灌溉',
     ),
   ];
@@ -262,14 +262,16 @@ class _AgriMallPageState extends State<AgriMallPage> {
         children: [
           Container(
             color: Theme.of(context).colorScheme.surfaceContainerLow,
-            padding: const EdgeInsets.only(left: 16, right: 16, bottom: 12),
-            child: SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: Row(
-                children: List.generate(_categories.length, (index) {
-                  return _buildChip(index);
-                }),
-              ),
+            padding: const EdgeInsets.fromLTRB(4, 0, 4, 12),
+            child: Row(
+              children: List.generate(_categories.length, (index) {
+                return Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 2),
+                    child: _buildChip(index),
+                  ),
+                );
+              }),
             ),
           ),
           Expanded(
@@ -298,7 +300,7 @@ class _AgriMallPageState extends State<AgriMallPage> {
                           crossAxisCount: Responsive.gridColumns(context),
                           mainAxisSpacing: 12,
                           crossAxisSpacing: 12,
-                          childAspectRatio: 0.72,
+                          childAspectRatio: 0.67,
                         ),
                     itemCount: products.length,
                     itemBuilder: (context, index) {
@@ -316,8 +318,8 @@ class _AgriMallPageState extends State<AgriMallPage> {
     return GestureDetector(
       onTap: () => setState(() => _selectedCategory = index),
       child: Container(
-        margin: const EdgeInsets.only(right: 8),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        alignment: Alignment.center,
+        padding: const EdgeInsets.symmetric(vertical: 8),
         decoration: BoxDecoration(
           color: selected ? const Color(0xFF2B3245) : Theme.of(context).colorScheme.surfaceContainerHighest,
           borderRadius: BorderRadius.circular(20),
@@ -343,77 +345,75 @@ class _AgriMallPageState extends State<AgriMallPage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Container(
-            height: 120,
-            decoration: BoxDecoration(
-              color: product.color.withValues(alpha: 0.08),
+          Expanded(
+            child: ClipRRect(
               borderRadius: const BorderRadius.vertical(
                 top: Radius.circular(14),
               ),
-            ),
-            child: Center(
-              child: Icon(
-                product.icon,
-                size: 48,
-                color: product.color.withValues(alpha: 0.5),
+              child: Container(
+                width: double.infinity,
+                color: product.color.withValues(alpha: 0.06),
+                child: Image.asset(
+                  product.imageAsset,
+                  fit: BoxFit.contain,
+                ),
               ),
             ),
           ),
           Padding(
-            padding: const EdgeInsets.all(12),
+            padding: const EdgeInsets.fromLTRB(10, 8, 10, 10),
             child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+              mainAxisSize: MainAxisSize.min,
               children: [
                 Text(
                   product.name,
                   style: TextStyle(
-                    fontSize: 14,
+                    fontSize: 13,
                     fontWeight: FontWeight.w600,
                     color: Theme.of(context).colorScheme.onSurface,
                   ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
-                const SizedBox(height: 2),
+                const SizedBox(height: 1),
                 Text(
                   product.spec,
-                  style: TextStyle(fontSize: 11, color: Theme.of(context).colorScheme.onSurfaceVariant),
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
-                const SizedBox(height: 10),
+                const SizedBox(height: 6),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.baseline,
-                      textBaseline: TextBaseline.alphabetic,
-                      children: [
-                        Text(
-                          '¥${product.price.toStringAsFixed(0)}',
-                          style: const TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.redAccent,
-                          ),
+                    Expanded(
+                      child: Text(
+                        '¥${product.price.toStringAsFixed(0)} ${product.unit}',
+                        style: const TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.redAccent,
                         ),
-                        Text(
-                          product.unit,
-                          style: TextStyle(
-                            fontSize: 10,
-                            color: Theme.of(context).colorScheme.onSurfaceVariant,
-                          ),
-                        ),
-                      ],
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
                     ),
                     GestureDetector(
                       onTap: () => _addToCart(product),
                       child: Container(
-                        width: 30,
-                        height: 30,
+                        width: 28,
+                        height: 28,
                         decoration: BoxDecoration(
                           color: const Color(0xFF2B3245),
-                          borderRadius: BorderRadius.circular(8),
+                          borderRadius: BorderRadius.circular(7),
                         ),
                         child: const Icon(
                           Icons.add,
-                          size: 18,
+                          size: 16,
                           color: Colors.white,
                         ),
                       ),
@@ -428,3 +428,4 @@ class _AgriMallPageState extends State<AgriMallPage> {
     );
   }
 }
+

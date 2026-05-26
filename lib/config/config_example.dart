@@ -5,20 +5,16 @@ class Config {
   static const String supabaseServiceRoleKey = 'sb_secret_xxxxxxxxxxxxxxxxxxxxxxxx';
   static const String supabaseGreenhouse = 'east-suburb-farm';
 
-  // 华为云 IAM 鉴权配置
-  static const String iamAuthUrl = 'https://iam.cn-north-4.myhuaweicloud.com/v3/auth/tokens';
-  static const String iamUser = 'your_iam_username';
-  static const String iamPassword = 'your_iam_password';
-  static const String iamDomain = 'your_iam_domain';
-  static const String iamProject = 'cn-north-4';
+  // EMQX MQTT 服务器配置
+  static const String emqxHost = 'your_emqx_server_ip';
+  static const int emqxPort = 1883;
+  static const String emqxClientId = 'smart_farm_flutter_app';
 
-  // 华为云 IoTDA 设备控制配置
-  static const String iotCommandUrl = 'https://{endpoint}/v5/iot/{project_id}/devices/{device_id}/commands';
-  static const String iotInstanceId = 'your_instance_id';
-  static const String iotServiceId = 'smartFarm';
-
-  // 本地 AMQP 转发 WebSocket 服务地址
-  static const String webSocketUrl = 'ws://192.168.x.x:8083';
+  // MQTT Topic 定义
+  static const String topicReport = 'smart_farm/report';
+  static const String topicCommand = 'smart_farm/command';
+  static const String topicResponse = 'smart_farm/response';
+  static const String topicStatus = 'smart_farm/status';
 
   // 高德地图 API 配置
   static const String amapWeatherUrl = "https://restapi.amap.com/v3/weather/weatherInfo";
@@ -28,4 +24,9 @@ class Config {
   static const String cozeApiUrl = 'https://api.coze.cn/v3/chat';
   static const String cozeApiToken = 'pat_xxxxxxxxxxxxxxxxxxxxxxxxxxxx';
   static const String cozeBotId = 'xxxxxxxxxxxxxxxxxxxxx';
+
+  // 语音识别 (百度ASR / 可替换任意STT服务) 配置
+  // 留空则禁用语音输入功能
+  static const String sttApiUrl = 'https://vop.baidu.com/server_api';
+  static const String sttApiKey = 'your_baidu_asr_api_key';
 }

@@ -8,6 +8,7 @@ import '../../services/ai_conversation_service.dart';
 import '../../services/auth_service.dart';
 import '../../services/coze_service.dart';
 import '../../services/device_manager.dart';
+import '../../services/voice_service.dart';
 import '../../utils/responsive.dart';
 import 'models/chat_message.dart';
 import 'widgets/chat_input_bar.dart';
@@ -33,6 +34,7 @@ class _AiChatPageState extends State<AiChatPage> {
   bool _hasInputText = false;
   String? _currentConversationId;
   bool _autoScroll = true;
+  bool _isListening = false;
 
   static const _suggestions = [
     '如何提高作物产量？',
@@ -54,6 +56,16 @@ class _AiChatPageState extends State<AiChatPage> {
     super.initState();
     _inputController.addListener(_onInputChanged);
     _scrollController.addListener(_onScrollChanged);
+    VoiceService.instance.recognizedText.addListener(_onVoiceTextChanged);
+  }
+
+  void _onVoiceTextChanged() {
+    if (_isListening && mounted) {
+      _inputController.text = VoiceService.instance.recognizedText.value;
+      _inputController.selection = TextSelection.fromPosition(
+        TextPosition(offset: _inputController.text.length),
+      );
+    }
   }
 
   void _onInputChanged() {
@@ -76,6 +88,8 @@ class _AiChatPageState extends State<AiChatPage> {
   void dispose() {
     _inputController.removeListener(_onInputChanged);
     _scrollController.removeListener(_onScrollChanged);
+    VoiceService.instance.recognizedText.removeListener(_onVoiceTextChanged);
+    VoiceService.instance.cancel();
     _inputController.dispose();
     _scrollController.dispose();
     _inputFocus.dispose();
@@ -419,6 +433,36 @@ class _AiChatPageState extends State<AiChatPage> {
     _sendMessage();
   }
 
+  Future<void> _toggleVoice() async {
+    if (_isListening) {
+      VoiceService.instance.cancel();
+      setState(() => _isListening = false);
+      return;
+    }
+
+    setState(() => _isListening = true);
+    await VoiceService.instance.startListening(
+      onResult: (text) {
+        if (!mounted) return;
+        setState(() => _isListening = false);
+        _inputController.text = text;
+        _inputController.selection = TextSelection.fromPosition(
+          TextPosition(offset: text.length),
+        );
+        if (text.isNotEmpty && !_isAiThinking) {
+          _sendMessage();
+        }
+      },
+      onError: (err) {
+        if (!mounted) return;
+        setState(() => _isListening = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(err)),
+        );
+      },
+    );
+  }
+
   void _stopAi() {
     _streamSub?.cancel();
     _streamSub = null;
@@ -497,6 +541,8 @@ class _AiChatPageState extends State<AiChatPage> {
         focusNode: _inputFocus,
         isThinking: _isAiThinking,
         hasText: _hasInputText,
+        isListening: _isListening,
+        onMicTap: _toggleVoice,
         onSend: _sendMessage,
         onStop: _stopAi,
       ),

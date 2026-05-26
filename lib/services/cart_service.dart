@@ -7,7 +7,7 @@ class CartItem {
   final String spec;
   final double price;
   final String unit;
-  final IconData icon;
+  final String imageAsset;
   final Color color;
   int quantity;
 
@@ -17,7 +17,7 @@ class CartItem {
     required this.spec,
     required this.price,
     required this.unit,
-    required this.icon,
+    required this.imageAsset,
     required this.color,
     this.quantity = 1,
   });

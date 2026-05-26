@@ -3,6 +3,7 @@ import 'dart:math';
 
 import 'package:flutter/material.dart';
 
+import '../../services/alert_prediction_service.dart';
 import '../../services/app_feedback.dart';
 import '../../services/device_manager.dart';
 import '../../widgets/common/stat_card.dart';
@@ -10,6 +11,7 @@ import '../main_page.dart';
 import 'models/alert_data.dart';
 import 'widgets/alert_card.dart';
 import 'widgets/dismissible_alert.dart';
+import 'widgets/prediction_alert_card.dart';
 
 class AlertCenterPage extends StatefulWidget {
   const AlertCenterPage({super.key});
@@ -95,6 +97,7 @@ static final List<AlertData> _baseAlerts = [
   void initState() {
     super.initState();
     _scheduleNextGenerate();
+    AlertPredictionService.instance.loadCached();
   }
 
   @override
@@ -258,6 +261,13 @@ static final List<AlertData> _baseAlerts = [
 
   int get _totalCount => _unhandledCount + _handledCount;
 
+  void _handlePredictionAction(PredictionAlert alert) {
+    if (alert.actionType == 'ventilate') {
+      DeviceManager.instance.controlDevice('motor_control', 'ON');
+      showAppToast('通风设备已开启');
+    }
+  }
+
   VoidCallback? _getAction(AlertData alert) {
     if (alert.primaryActionText == '一键灌溉') return _handleIrrigation;
     if (alert.primaryActionText == '开启通风') return _handleVentilation;
@@ -350,6 +360,7 @@ static final List<AlertData> _baseAlerts = [
             const SizedBox(height: 20),
             if (_selectedFilterIndex == 0 || _selectedFilterIndex == 1) ...[
               Builder(builder: (context) {
+                final predAlerts = AlertPredictionService.instance.alerts;
                 final today = activeAlerts
                     .where((a) => _dateGroupLabel(a.time) == '今天')
                     .toList();
@@ -384,6 +395,25 @@ static final List<AlertData> _baseAlerts = [
                 return Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
+                    if (predAlerts.isNotEmpty) ...[
+                      Text(
+                        'AI 预测告警',
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: Colors.purple.shade300,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      ...predAlerts.take(5).map((a) => Padding(
+                            padding: const EdgeInsets.only(bottom: 12),
+                            child: PredictionAlertCard(
+                              alert: a,
+                              onAction: () => _handlePredictionAction(a),
+                            ),
+                          )),
+                      const SizedBox(height: 24),
+                    ],
                     for (final group in groups) ...[
                       Text(
                         group.key,

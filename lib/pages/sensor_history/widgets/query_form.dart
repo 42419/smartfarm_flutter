@@ -61,35 +61,21 @@ class QueryForm extends StatelessWidget {
           Row(
             children: [
               Expanded(
-                child: DropdownButtonFormField<int>(
-                  initialValue: limit,
-                  decoration: _inputDecoration(cs, '条数限制'),
-                  items: const [50, 100, 200, 500]
-                      .map(
-                        (value) => DropdownMenuItem(
-                          value: value,
-                          child: Text('最近$value条'),
-                        ),
-                      )
-                      .toList(),
+                child: _buildSelectChip<int>(
+                  context,
+                  value: limit,
+                  items: const [50, 100, 200, 500],
+                  labelBuilder: (value) => '最近$value条',
                   onChanged: onLimitChanged,
                 ),
               ),
               const SizedBox(width: 12),
               Expanded(
-                child: DropdownButtonFormField<bool>(
-                  initialValue: descending,
-                  decoration: _inputDecoration(cs, '排序'),
-                  items: const [
-                    DropdownMenuItem(
-                      value: true,
-                      child: Text('最新在前'),
-                    ),
-                    DropdownMenuItem(
-                      value: false,
-                      child: Text('最早在前'),
-                    ),
-                  ],
+                child: _buildSelectChip<bool>(
+                  context,
+                  value: descending,
+                  items: const [true, false],
+                  labelBuilder: (value) => value ? '最新在前' : '最早在前',
                   onChanged: onDescendingChanged,
                 ),
               ),
@@ -127,6 +113,53 @@ class QueryForm extends StatelessWidget {
       ),
       contentPadding:
           const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+    );
+  }
+
+  Widget _buildSelectChip<T>(
+    BuildContext context, {
+    required T value,
+    required List<T> items,
+    required String Function(T value) labelBuilder,
+    required ValueChanged<T?> onChanged,
+  }) {
+    final cs = Theme.of(context).colorScheme;
+    return Container(
+      height: 42,
+      padding: const EdgeInsets.symmetric(horizontal: 12),
+      decoration: BoxDecoration(
+        color: cs.surfaceContainerHighest,
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: DropdownButtonHideUnderline(
+        child: DropdownButton<T>(
+          value: value,
+          isExpanded: true,
+          borderRadius: BorderRadius.circular(14),
+          icon: Icon(
+            Icons.keyboard_arrow_down_rounded,
+            color: cs.onSurfaceVariant,
+          ),
+          style: TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.w500,
+            color: cs.onSurface,
+          ),
+          dropdownColor: cs.surface,
+          items: items
+              .map(
+                (item) => DropdownMenuItem<T>(
+                  value: item,
+                  child: Text(
+                    labelBuilder(item),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              )
+              .toList(),
+          onChanged: onChanged,
+        ),
+      ),
     );
   }
 

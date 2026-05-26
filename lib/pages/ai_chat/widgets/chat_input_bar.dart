@@ -9,6 +9,8 @@ class ChatInputBar extends StatelessWidget {
     required this.hasText,
     required this.onSend,
     required this.onStop,
+    this.isListening = false,
+    this.onMicTap,
   });
 
   final TextEditingController controller;
@@ -17,6 +19,8 @@ class ChatInputBar extends StatelessWidget {
   final bool hasText;
   final VoidCallback onSend;
   final VoidCallback onStop;
+  final bool isListening;
+  final VoidCallback? onMicTap;
 
   @override
   Widget build(BuildContext context) {
@@ -31,12 +35,42 @@ class ChatInputBar extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.end,
         children: [
+          if (onMicTap != null)
+            Padding(
+              padding: const EdgeInsets.only(right: 8, bottom: 4),
+              child: GestureDetector(
+                onTap: onMicTap,
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 200),
+                  width: 40,
+                  height: 40,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: isListening
+                        ? Colors.redAccent
+                        : colorScheme.surfaceContainerHighest,
+                  ),
+                  child: Icon(
+                    isListening ? Icons.mic : Icons.mic_none_outlined,
+                    size: 22,
+                    color: isListening
+                        ? Colors.white
+                        : colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ),
+            ),
           Expanded(
             child: Container(
               constraints: const BoxConstraints(maxHeight: 120),
               decoration: BoxDecoration(
-                color: colorScheme.surfaceContainerHigh,
+                color: isListening
+                    ? Colors.redAccent.withValues(alpha: 0.08)
+                    : colorScheme.surfaceContainerHigh,
                 borderRadius: BorderRadius.circular(28),
+                border: isListening
+                    ? Border.all(color: Colors.redAccent.withValues(alpha: 0.3))
+                    : null,
               ),
               child: TextField(
                 controller: controller,
@@ -46,9 +80,11 @@ class ChatInputBar extends StatelessWidget {
                 textInputAction: TextInputAction.newline,
                 style: TextStyle(fontSize: 15, color: colorScheme.onSurface),
                 decoration: InputDecoration(
-                  hintText: '向 AI 提问...',
+                  hintText: isListening ? '正在聆听...' : '向 AI 提问...',
                   hintStyle: TextStyle(
-                    color: colorScheme.onSurface.withValues(alpha: 0.4),
+                    color: isListening
+                        ? Colors.redAccent.withValues(alpha: 0.5)
+                        : colorScheme.onSurface.withValues(alpha: 0.4),
                     fontSize: 15,
                   ),
                   contentPadding: const EdgeInsets.symmetric(

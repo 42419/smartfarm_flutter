@@ -1,11 +1,9 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:camera/camera.dart';
-import 'package:permission_handler/permission_handler.dart';
+import 'package:video_player/video_player.dart';
 import '../../services/app_feedback.dart';
 import '../../services/device_manager.dart';
 import '../../utils/responsive.dart';
-import 'widgets/device_card.dart';
 
 class DeviceControlPage extends StatefulWidget {
   const DeviceControlPage({super.key});
@@ -15,16 +13,12 @@ class DeviceControlPage extends StatefulWidget {
 }
 
 class _DeviceControlPageState extends State<DeviceControlPage>
-    with AutomaticKeepAliveClientMixin {
-  int _selectedTabIndex = 0;
-  final List<String> _tabs = ['全部', '通风设备', '补光设备', '水肥设备', '灌溉设备'];
-
+    with AutomaticKeepAliveClientMixin, TickerProviderStateMixin {
   @override
   bool get wantKeepAlive => true;
 
   bool pump1 = false;
   bool pump2 = true;
-  bool window3 = true;
 
   bool _autoControlEnabled = false;
   bool _autoFan = true;
@@ -34,12 +28,51 @@ class _DeviceControlPageState extends State<DeviceControlPage>
   double _humidityThreshold = 50.0;
   double _lightThreshold = 500.0;
 
-  CameraController? _cameraController;
-  bool _isCameraActive = false;
-  bool _isCameraLoading = false;
+  late AnimationController _windAnimController;
+  late Animation<double> _windAnim;
+  late AnimationController _flow1AnimController;
+  late Animation<double> _flow1Anim;
+  late AnimationController _flow2AnimController;
+  late Animation<double> _flow2Anim;
+  late AnimationController _recAnimController;
+
+  void _syncAnimations() {
+    final dm = DeviceManager.instance;
+    if (dm.motorStatus) {
+      if (!_windAnimController.isAnimating && !_windAnimController.isCompleted) {
+        _windAnimController.forward();
+      }
+    } else {
+      if (!_windAnimController.isAnimating && !_windAnimController.isDismissed) {
+        _windAnimController.reverse();
+      }
+    }
+    if (pump1) {
+      if (!_flow1AnimController.isAnimating && !_flow1AnimController.isCompleted) {
+        _flow1AnimController.forward();
+      }
+    } else {
+      if (!_flow1AnimController.isAnimating && !_flow1AnimController.isDismissed) {
+        _flow1AnimController.reverse();
+      }
+    }
+    if (pump2) {
+      if (!_flow2AnimController.isAnimating && !_flow2AnimController.isCompleted) {
+        _flow2AnimController.forward();
+      }
+    } else {
+      if (!_flow2AnimController.isAnimating && !_flow2AnimController.isDismissed) {
+        _flow2AnimController.reverse();
+      }
+    }
+  }
+
+  VideoPlayerController? _videoController;
+  double _videoAspectRatio = 16 / 9;
+  bool _isVideoActive = false;
+  bool _isVideoLoading = false;
   Timer? _timeTimer;
   String _currentTime = '';
-  final GlobalKey _cameraKey = GlobalKey();
 
   String _formatNow() {
     final now = DateTime.now();
@@ -62,142 +95,115 @@ class _DeviceControlPageState extends State<DeviceControlPage>
   @override
   void initState() {
     super.initState();
+    final dm = DeviceManager.instance;
     DeviceManager.instance.addListener(_onDeviceUpdate);
+
+    _windAnimController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 3500),
+      value: dm.motorStatus ? 1.0 : 0.0,
+    );
+    _windAnim = CurvedAnimation(
+      parent: _windAnimController,
+      curve: Curves.easeInOut,
+      reverseCurve: Curves.easeOutCubic,
+    );
+    _windAnimController.addListener(() => setState(() {}));
+
+    _flow1AnimController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 3000),
+      value: pump1 ? 1.0 : 0.0,
+    );
+    _flow1Anim = CurvedAnimation(
+      parent: _flow1AnimController,
+      curve: Curves.easeInOut,
+      reverseCurve: Curves.easeOutCubic,
+    );
+    _flow1AnimController.addListener(() => setState(() {}));
+
+    _flow2AnimController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 3000),
+      value: pump2 ? 1.0 : 0.0,
+    );
+    _flow2Anim = CurvedAnimation(
+      parent: _flow2AnimController,
+      curve: Curves.easeInOut,
+      reverseCurve: Curves.easeOutCubic,
+    );
+    _flow2AnimController.addListener(() => setState(() {}));
+
+    _recAnimController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 600),
+    )..repeat(reverse: true);
+    _recAnimController.addListener(() => setState(() {}));
+
+    _videoController = VideoPlayerController.asset('assets/video/video.mp4');
+    _videoController!.initialize().then((_) {
+      if (mounted) {
+        setState(() => _videoAspectRatio = _videoController!.value.aspectRatio);
+      }
+    });
   }
 
   @override
   void dispose() {
     _stopTimer();
+    _windAnimController.dispose();
+    _flow1AnimController.dispose();
+    _flow2AnimController.dispose();
+    _recAnimController.dispose();
     DeviceManager.instance.removeListener(_onDeviceUpdate);
-    _disposeCamera();
+    _disposeVideo();
     super.dispose();
   }
 
-  Future<void> _initCamera() async {
-    if (_isCameraLoading) return;
-    setState(() => _isCameraLoading = true);
+  Future<void> _initVideo() async {
+    if (_isVideoLoading) return;
+    setState(() => _isVideoLoading = true);
 
     try {
-      final status = await Permission.camera.request();
-      if (!status.isGranted) {
-        if (mounted) {
-          showAppToast('需要相机权限才能使用监控功能');
-          setState(() => _isCameraLoading = false);
-        }
-        return;
+      if (_videoController == null) {
+        _videoController = VideoPlayerController.asset('assets/video/video.mp4');
+        await _videoController!.initialize();
+        _videoAspectRatio = _videoController!.value.aspectRatio;
       }
-
-      final cameras = await availableCameras();
-      if (cameras.isEmpty) {
-        if (mounted) {
-          showAppToast('未检测到可用摄像头');
-          setState(() => _isCameraLoading = false);
-        }
-        return;
-      }
-
-      _cameraController = CameraController(
-        cameras.first,
-        ResolutionPreset.medium,
-        enableAudio: false,
-      );
-
-      await _cameraController!.initialize();
+      _videoController!.setLooping(true);
+      _videoController!.play();
       if (mounted) {
         setState(() {
-          _isCameraActive = true;
-          _isCameraLoading = false;
+          _isVideoActive = true;
+          _isVideoLoading = false;
         });
         _startTimer();
       }
     } catch (e) {
       if (mounted) {
-        showAppToast('摄像头启动失败');
-        setState(() => _isCameraLoading = false);
+        showAppToast('视频加载失败');
+        setState(() => _isVideoLoading = false);
       }
     }
   }
 
-  Future<void> _disposeCamera() async {
+  Future<void> _disposeVideo() async {
     _stopTimer();
-    if (_cameraController != null) {
-      await _cameraController!.dispose();
-      _cameraController = null;
+    if (_videoController != null) {
+      await _videoController!.pause();
+      await _videoController!.dispose();
+      _videoController = null;
     }
-    _isCameraActive = false;
+    _isVideoActive = false;
   }
 
-  Future<void> _toggleCamera() async {
-    if (_isCameraActive) {
-      await _disposeCamera();
+  Future<void> _toggleVideo() async {
+    if (_isVideoActive) {
+      await _disposeVideo();
       if (mounted) setState(() {});
     } else {
-      await _initCamera();
+      await _initVideo();
     }
-  }
-
-  Future<void> _goFullscreen() async {
-    if (!_isCameraActive || _cameraController == null) return;
-    final controller = _cameraController!;
-
-    final renderBox =
-        _cameraKey.currentContext?.findRenderObject() as RenderBox?;
-    final offset = renderBox?.localToGlobal(Offset.zero);
-    final size = renderBox?.size;
-
-    if (offset == null || size == null) {
-      await Navigator.of(context).push<bool>(
-        MaterialPageRoute(
-          fullscreenDialog: true,
-          builder: (_) => _FullscreenCameraPage(controller: controller),
-        ),
-      );
-      return;
-    }
-
-    await Navigator.of(context).push<bool>(
-      PageRouteBuilder(
-        transitionDuration: const Duration(milliseconds: 350),
-        reverseTransitionDuration: const Duration(milliseconds: 300),
-        pageBuilder: (context, animation, secondaryAnimation) =>
-            _FullscreenCameraPage(controller: controller),
-        transitionsBuilder: (context, animation, secondaryAnimation, child) {
-          final curved = CurvedAnimation(
-            parent: animation,
-            curve: Curves.fastOutSlowIn,
-          );
-          final isReverse = animation.status == AnimationStatus.reverse;
-          return AnimatedBuilder(
-            animation: curved,
-            builder: (context, child) {
-              final t = curved.value;
-              final screenSize = MediaQuery.of(context).size;
-              return Stack(
-                children: [
-                  Positioned(
-                    left: offset.dx * (1 - t),
-                    top: offset.dy * (1 - t),
-                    width: size.width + (screenSize.width - size.width) * t,
-                    height: size.height + (screenSize.height - size.height) * t,
-                    child: Container(color: Colors.black),
-                  ),
-                  if (!isReverse)
-                    Positioned(
-                      left: offset.dx * (1 - t),
-                      top: offset.dy * (1 - t),
-                      width: size.width + (screenSize.width - size.width) * t,
-                      height:
-                          size.height + (screenSize.height - size.height) * t,
-                      child: child!,
-                    ),
-                ],
-              );
-            },
-            child: child,
-          );
-        },
-      ),
-    );
   }
 
   void _onDeviceUpdate() {
@@ -205,6 +211,7 @@ class _DeviceControlPageState extends State<DeviceControlPage>
       final dm = DeviceManager.instance;
       dm.silentMode = _autoControlEnabled;
       if (_autoControlEnabled) _runAutoControl();
+      _syncAnimations();
       setState(() {});
     }
   }
@@ -247,91 +254,130 @@ class _DeviceControlPageState extends State<DeviceControlPage>
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
+      backgroundColor: Colors.transparent,
       builder: (sheetContext) {
         return StatefulBuilder(
           builder: (ctx, setSheetState) {
             return DraggableScrollableSheet(
-              initialChildSize: 0.5,
-              minChildSize: 0.35,
-              maxChildSize: 0.85,
+              initialChildSize: 0.45,
+              minChildSize: 0.30,
+              maxChildSize: 0.80,
               expand: false,
               builder: (ctx, scrollController) {
+                final dm = DeviceManager.instance;
+                final cs = Theme.of(context).colorScheme;
                 return Container(
                   decoration: BoxDecoration(
-                    color: Theme.of(context).colorScheme.surfaceContainerLow,
-                    borderRadius: const BorderRadius.vertical(
-                      top: Radius.circular(20),
-                    ),
+                    color: cs.surfaceContainerLow,
+                    borderRadius:
+                        const BorderRadius.vertical(top: Radius.circular(22)),
                   ),
                   child: ListView(
                     controller: scrollController,
-                    padding: const EdgeInsets.fromLTRB(16, 8, 16, 20),
+                    padding: EdgeInsets.zero,
                     children: [
+                      const SizedBox(height: 10),
                       Center(
                         child: Container(
-                          width: 40,
+                          width: 36,
                           height: 4,
                           decoration: BoxDecoration(
-                            color: Colors.grey.shade400,
+                            color: cs.onSurfaceVariant.withValues(alpha: 0.25),
                             borderRadius: BorderRadius.circular(2),
                           ),
                         ),
                       ),
-                      const SizedBox(height: 12),
+                      const SizedBox(height: 16),
                       Padding(
-                        padding: const EdgeInsets.fromLTRB(14, 0, 8, 0),
-                        child: Row(
-                          children: [
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  const Text(
-                                    '自动控制',
-                                    style: TextStyle(
-                                      fontWeight: FontWeight.w600,
-                                      fontSize: 16,
-                                    ),
-                                  ),
-                                  Text(
-                                    _autoControlEnabled
-                                        ? '已开启，根据环境自动调节设备'
-                                        : '已关闭',
-                                    style: TextStyle(
-                                      fontSize: 13,
-                                      color: Theme.of(
-                                        context,
-                                      ).colorScheme.onSurfaceVariant,
-                                    ),
-                                  ),
-                                ],
+                        padding: const EdgeInsets.symmetric(horizontal: 20),
+                        child: Container(
+                          padding: const EdgeInsets.all(16),
+                          decoration: BoxDecoration(
+                            color: cs.surface,
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                          child: Row(
+                            children: [
+                              Container(
+                                width: 44,
+                                height: 44,
+                                decoration: BoxDecoration(
+                                  color: _autoControlEnabled
+                                      ? Colors.blueAccent.withValues(alpha: 0.12)
+                                      : cs.surfaceContainerHighest,
+                                  borderRadius: BorderRadius.circular(13),
+                                ),
+                                child: Icon(
+                                  Icons.auto_awesome,
+                                  size: 22,
+                                  color: _autoControlEnabled
+                                      ? Colors.blueAccent
+                                      : cs.onSurfaceVariant,
+                                ),
                               ),
-                            ),
-                            Switch(
-                              value: _autoControlEnabled,
-                              onChanged: (val) {
-                                setSheetState(() {});
-                                setState(() => _autoControlEnabled = val);
-                              },
-                            ),
-                          ],
+                              const SizedBox(width: 14),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    const Text(
+                                      '自动控制',
+                                      style: TextStyle(
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.w700,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 2),
+                                    Text(
+                                      _autoControlEnabled
+                                          ? '根据环境数据自动调节设备'
+                                          : '已关闭，需手动控制所有设备',
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        color: cs.onSurfaceVariant,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              Switch(
+                                value: _autoControlEnabled,
+                                onChanged: (val) {
+                                  setSheetState(() {});
+                                  setState(() => _autoControlEnabled = val);
+                                },
+                                activeThumbColor: Colors.white,
+                                activeTrackColor: Colors.blueAccent,
+                              ),
+                            ],
+                          ),
                         ),
                       ),
                       if (_autoControlEnabled) ...[
-                        const SizedBox(height: 8),
+                        const SizedBox(height: 12),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 20),
+                          child: Text(
+                            '当前环境：${dm.temperature == '--' ? '--℃' : '${dm.temperature}℃'}   ${dm.humidity == '--' ? '--%' : '${dm.humidity}%'}   ${dm.illumination == '--' ? '-- lux' : '${dm.illumination} lux'}',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: cs.onSurfaceVariant,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 10),
                         _buildAutoRule(
                           context: ctx,
                           icon: Icons.thermostat,
-                          label: '温度阈值',
+                          iconColor: Colors.orangeAccent,
+                          label: '温度',
                           subtitle: '高于阈值自动开启通风',
                           value: _tempThreshold,
                           unit: '℃',
                           min: 15,
                           max: 45,
                           enabled: _autoFan,
+                          currentValue: double.tryParse(dm.temperature),
                           onToggle: (v) {
                             setSheetState(() {});
                             setState(() => _autoFan = v);
@@ -341,17 +387,19 @@ class _DeviceControlPageState extends State<DeviceControlPage>
                             setState(() => _tempThreshold = v);
                           },
                         ),
-                        const SizedBox(height: 6),
+                        const SizedBox(height: 8),
                         _buildAutoRule(
                           context: ctx,
                           icon: Icons.water_drop,
-                          label: '湿度阈值',
+                          iconColor: Colors.blueAccent,
+                          label: '湿度',
                           subtitle: '低于阈值自动开启灌溉',
                           value: _humidityThreshold,
                           unit: '%',
                           min: 20,
                           max: 90,
                           enabled: _autoIrrigation,
+                          currentValue: double.tryParse(dm.humidity),
                           onToggle: (v) {
                             setSheetState(() {});
                             setState(() => _autoIrrigation = v);
@@ -361,17 +409,19 @@ class _DeviceControlPageState extends State<DeviceControlPage>
                             setState(() => _humidityThreshold = v);
                           },
                         ),
-                        const SizedBox(height: 6),
+                        const SizedBox(height: 8),
                         _buildAutoRule(
                           context: ctx,
                           icon: Icons.wb_sunny,
-                          label: '光照阈值',
+                          iconColor: Colors.amber,
+                          label: '光照',
                           subtitle: '低于阈值自动开启补光',
                           value: _lightThreshold,
                           unit: 'lux',
                           min: 100,
                           max: 2000,
                           enabled: _autoLight,
+                          currentValue: double.tryParse(dm.illumination),
                           onToggle: (v) {
                             setSheetState(() {});
                             setState(() => _autoLight = v);
@@ -382,6 +432,7 @@ class _DeviceControlPageState extends State<DeviceControlPage>
                           },
                         ),
                       ],
+                      const SizedBox(height: 24),
                     ],
                   ),
                 );
@@ -396,6 +447,7 @@ class _DeviceControlPageState extends State<DeviceControlPage>
   Widget _buildAutoRule({
     required BuildContext context,
     required IconData icon,
+    required Color iconColor,
     required String label,
     required String subtitle,
     required double value,
@@ -403,81 +455,116 @@ class _DeviceControlPageState extends State<DeviceControlPage>
     required double min,
     required double max,
     required bool enabled,
+    double? currentValue,
     required ValueChanged<bool> onToggle,
     required ValueChanged<double> onChanged,
   }) {
     final cs = Theme.of(context).colorScheme;
-    return Container(
-      padding: const EdgeInsets.fromLTRB(14, 8, 8, 4),
-      decoration: BoxDecoration(
-        color: cs.surface,
-        borderRadius: BorderRadius.circular(10),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Icon(
-                icon,
-                size: 18,
-                color: enabled ? Colors.blueAccent : Colors.grey,
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20),
+      child: Container(
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: cs.surface,
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  width: 36,
+                  height: 36,
+                  decoration: BoxDecoration(
+                    color: enabled
+                        ? iconColor.withValues(alpha: 0.12)
+                        : cs.surfaceContainerHighest,
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Icon(
+                    icon,
+                    size: 19,
+                    color: enabled ? iconColor : cs.onSurfaceVariant,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        label,
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                          color: enabled ? cs.onSurface : cs.onSurfaceVariant,
+                        ),
+                      ),
+                      const SizedBox(height: 1),
+                      Text(
+                        subtitle,
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: cs.onSurfaceVariant,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
                     Text(
-                      label,
+                      '${value.toInt()} $unit',
                       style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
-                        color: enabled ? cs.onSurface : Colors.grey,
+                        fontSize: 15,
+                        fontWeight: FontWeight.w700,
+                        color: enabled ? iconColor : cs.onSurfaceVariant,
                       ),
                     ),
-                    Text(
-                      subtitle,
-                      style: TextStyle(
-                        fontSize: 11,
-                        color: cs.onSurfaceVariant,
+                    if (currentValue != null)
+                      Text(
+                        '当前 ${currentValue.toStringAsFixed(currentValue == currentValue.roundToDouble() ? 0 : 1)}$unit',
+                        style: TextStyle(
+                          fontSize: 10,
+                          color: cs.onSurfaceVariant,
+                        ),
                       ),
-                    ),
                   ],
                 ),
-              ),
-              Text(
-                '${value.toInt()} $unit',
-                style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
-                  color: enabled ? Colors.blueAccent : Colors.grey,
+                const SizedBox(width: 6),
+                Switch(
+                  value: enabled,
+                  onChanged: onToggle,
+                  materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  activeThumbColor: Colors.white,
+                  activeTrackColor: iconColor,
                 ),
-              ),
-              Switch(
-                value: enabled,
-                onChanged: onToggle,
-                materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-              ),
-            ],
-          ),
-          const SizedBox(height: 2),
-          SliderTheme(
-            data: SliderThemeData(
-              trackHeight: 3,
-              thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 7),
-              activeTrackColor: enabled ? Colors.blueAccent : Colors.grey,
-              inactiveTrackColor: Colors.grey.shade300,
+              ],
             ),
-            child: Slider(
-              value: value,
-              min: min,
-              max: max,
-              divisions: ((max - min) / 1).toInt(),
-              onChanged: enabled ? onChanged : null,
+            const SizedBox(height: 6),
+            SliderTheme(
+              data: SliderThemeData(
+                trackHeight: 4,
+                thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 8),
+                activeTrackColor: enabled ? iconColor : Colors.grey,
+                inactiveTrackColor: enabled
+                    ? iconColor.withValues(alpha: 0.15)
+                    : Colors.grey.shade200,
+                overlayColor: iconColor.withValues(alpha: 0.12),
+                thumbColor: Colors.white,
+              ),
+              child: Slider(
+                value: value,
+                min: min,
+                max: max,
+                divisions: ((max - min) / 2).toInt(),
+                onChanged: enabled ? onChanged : null,
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -487,13 +574,19 @@ class _DeviceControlPageState extends State<DeviceControlPage>
     super.build(context);
     final dm = DeviceManager.instance;
     final isLarge = Responsive.isLargeScreen(context);
+    final isDesktop = Responsive.isDesktop(context);
 
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
-        title: const Text(
-          '设备控制',
-          style: TextStyle(fontWeight: FontWeight.bold),
+        title: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text('设备控制',
+                style: TextStyle(fontWeight: FontWeight.bold)),
+            const SizedBox(width: 10),
+            _buildOnlineBadge(dm),
+          ],
         ),
         backgroundColor: Theme.of(context).colorScheme.surface,
         elevation: 0,
@@ -510,256 +603,143 @@ class _DeviceControlPageState extends State<DeviceControlPage>
           ),
         ],
       ),
-      body: isLarge
-          ? _buildLandscapeBody(context, dm)
-          : _buildMobileBody(context, dm),
+      body: isDesktop
+          ? _buildDesktopBody(context, dm)
+          : isLarge
+              ? _buildLandscapeBody(context, dm)
+              : _buildMobileBody(context, dm),
     );
   }
 
-  Widget _buildLandscapeBody(BuildContext context, DeviceManager dm) {
-    bool fan1 = dm.motorStatus;
-    bool light2 = dm.lightStatus;
-    final currentTemp = dm.temperature == '--' ? '--℃' : '${dm.temperature}℃';
-    final currentIllumination = dm.illumination == '--'
-        ? '-- lux'
-        : '${dm.illumination} lux';
-
-    return Padding(
-      padding: const EdgeInsets.all(16),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Expanded(
-            flex: 5,
-            child: Column(
-              children: [
-                _buildTabChips(context),
-                const SizedBox(height: 12),
-                Expanded(
-                  child: _buildCameraArea(context),
-                ),
-                const SizedBox(height: 12),
-                _buildQuickOps(context, dm, fan1, light2),
-              ],
-            ),
-          ),
-          const SizedBox(width: 16),
-          Expanded(
-            flex: 5,
-            child: _buildDeviceList(
-              context,
-              dm,
-              fan1,
-              light2,
-              currentTemp,
-              currentIllumination,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildMobileBody(BuildContext context, DeviceManager dm) {
-    bool fan1 = dm.motorStatus;
-    bool light2 = dm.lightStatus;
-    final currentTemp = dm.temperature == '--' ? '--℃' : '${dm.temperature}℃';
-    final currentIllumination = dm.illumination == '--'
-        ? '-- lux'
-        : '${dm.illumination} lux';
-
-    return Column(
-      children: [
-        _buildTabChips(context),
-        _buildCameraArea(context),
-        _buildQuickOps(context, dm, fan1, light2),
-        const SizedBox(height: 12),
-        Expanded(
-          child: _buildDeviceList(
-            context,
-            dm,
-            fan1,
-            light2,
-            currentTemp,
-            currentIllumination,
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildTabChips(BuildContext context) {
+  Widget _buildOnlineBadge(DeviceManager dm) {
     return Container(
-      color: Theme.of(context).colorScheme.surface,
-      padding: const EdgeInsets.only(left: 16, right: 16, bottom: 12),
-      child: SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        child: Row(
-          children: List.generate(_tabs.length, (index) {
-            bool isSelected = _selectedTabIndex == index;
-            return Padding(
-              padding: const EdgeInsets.only(right: 10),
-              child: ChoiceChip(
-                label: Text(_tabs[index]),
-                selected: isSelected,
-                onSelected: (bool selected) {
-                  setState(() => _selectedTabIndex = index);
-                },
-                selectedColor: Colors.blueAccent,
-                backgroundColor: Theme.of(context)
-                    .colorScheme
-                    .surfaceContainerHighest,
-                labelStyle: TextStyle(
-                  color: isSelected
-                      ? Colors.white
-                      : Theme.of(context).colorScheme.onSurfaceVariant,
-                  fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                ),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                showCheckmark: false,
-                side: BorderSide.none,
-              ),
-            );
-          }),
-        ),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      decoration: BoxDecoration(
+        color: dm.isDeviceOnline
+            ? Colors.green.withValues(alpha: 0.12)
+            : Colors.redAccent.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 7,
+            height: 7,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: dm.isDeviceOnline ? Colors.green : Colors.redAccent,
+            ),
+          ),
+          const SizedBox(width: 5),
+          Text(
+            dm.isDeviceOnline ? '在线' : '离线',
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              color: dm.isDeviceOnline ? Colors.green : Colors.redAccent,
+            ),
+          ),
+        ],
       ),
     );
   }
 
-  Widget _buildCameraArea(BuildContext context) {
-    return Stack(
-      children: [
-        GestureDetector(
-          onTap: _isCameraActive ? null : _initCamera,
-          child: Container(
-            key: _cameraKey,
-            width: double.infinity,
-            height: 230,
-            decoration: const BoxDecoration(color: Color(0xFF1A1A2E)),
-            child: _isCameraActive && _cameraController != null
-                ? CameraPreview(_cameraController!)
-                : Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(Icons.videocam_rounded,
-                            size: 56,
-                            color: Colors.white.withValues(alpha: 0.35)),
-                        const SizedBox(height: 12),
-                        Text('视频监控',
-                            style: TextStyle(
-                                color:
-                                    Colors.white.withValues(alpha: 0.6),
-                                fontSize: 16,
-                                fontWeight: FontWeight.w500)),
-                        const SizedBox(height: 6),
-                        Text('点击开启实时监控',
-                            style: TextStyle(
-                                color:
-                                    Colors.white.withValues(alpha: 0.3),
-                                fontSize: 13)),
-                      ],
-                    ),
-                  ),
-          ),
-        ),
-        if (_isCameraLoading)
-          const Positioned.fill(
-            child: Center(
-              child: SizedBox(
-                  width: 36,
-                  height: 36,
-                  child: CircularProgressIndicator(
-                      strokeWidth: 2.5, color: Colors.white)),
-            ),
-          ),
-        if (_isCameraActive) ...[
-          Positioned(
-            top: 8,
-            right: 8,
-            child: Container(
-              decoration: BoxDecoration(
-                color: Colors.black12,
-                borderRadius: BorderRadius.circular(16),
-              ),
-              child: IconButton(
-                icon: const Icon(Icons.close, color: Colors.white, size: 24),
-                onPressed: _toggleCamera,
-                padding: const EdgeInsets.all(4),
-                constraints: const BoxConstraints(),
-              ),
-            ),
-          ),
-          Positioned(
-            bottom: 8,
-            left: 8,
-            right: 8,
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(_currentTime,
-                    style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 13,
-                        fontFamily: 'monospace')),
-                IconButton(
-                  icon: const Icon(Icons.fullscreen,
-                      color: Colors.white, size: 24),
-                  onPressed: _goFullscreen,
-                  padding: const EdgeInsets.all(4),
-                  constraints: const BoxConstraints(),
-                ),
-              ],
-            ),
-          ),
+  Widget _buildEnvStrip(BuildContext context, DeviceManager dm) {
+    final cs = Theme.of(context).colorScheme;
+    return Container(
+      margin: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        color: cs.surfaceContainerLow,
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Row(
+        children: [
+          _envItem(Icons.thermostat, Colors.orangeAccent, dm.temperature, '°C'),
+          _envDivider(cs),
+          _envItem(Icons.water_drop_outlined, Colors.blueAccent, dm.humidity, '%'),
+          _envDivider(cs),
+          _envItem(Icons.wb_sunny_outlined, Colors.amber, dm.illumination, ' lux'),
         ],
-      ],
+      ),
     );
   }
 
-  Widget _buildQuickOps(
-      BuildContext context, DeviceManager dm, bool fan1, bool light2) {
+  Widget _envItem(IconData icon, Color color, String value, String unit) {
+    return Expanded(
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(icon, size: 20, color: color),
+          const SizedBox(width: 6),
+          Flexible(
+            child: Text(
+              value == '--' ? '--' : '$value$unit',
+              style: TextStyle(
+                fontSize: 15,
+                fontWeight: FontWeight.w700,
+                color: color,
+              ),
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _envDivider(ColorScheme cs) {
+    return Container(
+      width: 1,
+      height: 24,
+      color: cs.outlineVariant,
+    );
+  }
+
+  Widget _buildQuickActions(BuildContext context, DeviceManager dm) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 0, 16, 0),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
       child: Row(
         children: [
           Expanded(
-            child: QuickOpButton(
-              title: '一键通风',
+            child: _quickBtn(
+              context: context,
               icon: Icons.air,
+              label: '一键通风',
               color: Colors.green,
-              onTap: () {
-                final target = !fan1;
-                dm.controlDevice('motor_control', target ? 'ON' : 'OFF');
-              },
+              active: dm.motorStatus,
+              onTap: () => dm.controlDevice(
+                  'motor_control', dm.motorStatus ? 'OFF' : 'ON'),
             ),
           ),
           const SizedBox(width: 10),
           Expanded(
-            child: QuickOpButton(
-              title: '一键补光',
+            child: _quickBtn(
+              context: context,
               icon: Icons.wb_sunny,
+              label: '一键补光',
               color: Colors.orangeAccent,
-              onTap: () {
-                final target = !light2;
-                dm.controlDevice('light_control', target ? 'ON' : 'OFF');
-              },
+              active: dm.lightStatus,
+              onTap: () => dm.controlDevice(
+                  'light_control', dm.lightStatus ? 'OFF' : 'ON'),
             ),
           ),
           const SizedBox(width: 10),
           Expanded(
-            child: QuickOpButton(
-              title: '一键灌溉',
+            child: _quickBtn(
+              context: context,
               icon: Icons.water_drop,
+              label: '一键灌溉',
               color: Colors.blueAccent,
+              active: pump1,
               onTap: () {
                 final anyOff = !pump1 || !pump2;
                 setState(() {
                   pump1 = anyOff;
                   pump2 = anyOff;
                 });
+                dm.toggleAllIrrigation(anyOff);
                 showAppToast(anyOff ? '灌溉泵已全部开启' : '灌溉泵已全部关闭');
               },
             ),
@@ -769,148 +749,501 @@ class _DeviceControlPageState extends State<DeviceControlPage>
     );
   }
 
-  Widget _buildDeviceList(BuildContext context, DeviceManager dm, bool fan1,
-      bool light2, String currentTemp, String currentIllumination) {
-    return ListView(
-      padding: const EdgeInsets.only(left: 16, right: 16, top: 0, bottom: 20),
-      children: [
-        if (_selectedTabIndex == 0 || _selectedTabIndex == 1) ...[
-          const SectionHeader(
-            title: '通风设备',
-            icon: Icons.air,
-            color: Colors.green,
-          ),
-          DeviceCard(
-            title: '轴流风机 #001',
-            location: '1号大棚',
-            runtimeDay: '45',
-            attributes: [
-              {'label': '风速', 'value': fan1 ? '2 级' : '0 级'},
-              {'label': '当前温度', 'value': currentTemp},
-            ],
-            isOn: fan1,
-            onChanged: (val) {
-              dm.controlDevice('motor_control', val ? 'ON' : 'OFF');
-            },
-            icons: [Icons.access_time, Icons.monitor],
-          ),
-          const SizedBox(height: 12),
-          DeviceCard(
-            title: '电动天窗 #003',
-            location: '3号大棚',
-            runtimeDay: '18',
-            statusTextOn: '部分开启',
-            attributes: [
-              {'label': '开度', 'value': window3 ? '45%' : '0%'},
-              {'label': '当前温度', 'value': currentTemp},
-            ],
-            isOn: window3,
-            onChanged: (val) => setState(() => window3 = val),
-            icons: [Icons.access_time, Icons.tune],
-          ),
-          const SizedBox(height: 24),
-        ],
-        if (_selectedTabIndex == 0 || _selectedTabIndex == 2) ...[
-          const SectionHeader(
-            title: '补光设备',
-            icon: Icons.wb_sunny_outlined,
-            color: Colors.orangeAccent,
-          ),
-          DeviceCard(
-            title: 'LED补光灯 #001',
-            location: '1号大棚',
-            runtimeDay: '22',
-            attributes: [
-              {'label': '亮度', 'value': light2 ? '75%' : '0%'},
-              {'label': '环境光照', 'value': currentIllumination},
-            ],
-            isOn: light2,
-            onChanged: (val) {
-              dm.controlDevice('light_control', val ? 'ON' : 'OFF');
-            },
-            icons: [Icons.access_time],
-          ),
-          const SizedBox(height: 20),
-        ],
-        if (_selectedTabIndex == 0 || _selectedTabIndex == 4) ...[
-          const SectionHeader(
-            title: '灌溉设备',
-            icon: Icons.water_drop_outlined,
-            color: Colors.blueAccent,
-          ),
-          DeviceCard(
-            title: '灌溉泵 #001',
-            location: '1号大棚',
-            runtimeDay: '28',
-            attributes: [
-              {'label': '流量', 'value': pump1 ? '120 L/min' : '0 L/min'},
-              {'label': '压力', 'value': pump1 ? '0.32 Mpa' : '0 Mpa'},
-            ],
-            isOn: pump1,
-            onChanged: (val) => setState(() => pump1 = val),
-            icons: [Icons.access_time, Icons.monitor],
-          ),
-          const SizedBox(height: 12),
-          DeviceCard(
-            title: '灌溉泵 #002',
-            location: '2号大棚',
-            runtimeDay: '32',
-            attributes: [
-              {'label': '流量', 'value': pump2 ? '120 L/min' : '0 L/min'},
-              {'label': '压力', 'value': pump2 ? '0.32 Mpa' : '0 Mpa'},
-            ],
-            isOn: pump2,
-            onChanged: (val) => setState(() => pump2 = val),
-            icons: [Icons.access_time, Icons.monitor],
-          ),
-          const SizedBox(height: 24),
-        ],
-        if (_selectedTabIndex == 3) ...[
-          Padding(
-            padding: const EdgeInsets.only(top: 50),
-            child: Center(
-              child: Text(
-                '暂无相关设备',
-                style: TextStyle(
-                    color: Theme.of(context).colorScheme.onSurfaceVariant),
+  Widget _quickBtn({
+    required BuildContext context,
+    required IconData icon,
+    required String label,
+    required Color color,
+    required bool active,
+    required VoidCallback onTap,
+  }) {
+    final bgColor = active ? color : color.withValues(alpha: 0.15);
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 12),
+        decoration: BoxDecoration(
+          color: bgColor,
+          borderRadius: BorderRadius.circular(14),
+        ),
+        child: Column(
+          children: [
+            Icon(icon,
+                color: active ? Colors.white : color,
+                size: 24),
+            const SizedBox(height: 4),
+            Text(
+              label,
+              style: TextStyle(
+                color: active ? Colors.white : color,
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
               ),
             ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDesktopBody(BuildContext context, DeviceManager dm) {
+    return Padding(
+      padding: const EdgeInsets.all(20),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Expanded(
+            flex: 4,
+            child: Column(
+              children: [
+                _buildEnvStrip(context, dm),
+                const SizedBox(height: 12),
+                _buildCameraArea(context),
+                const SizedBox(height: 12),
+                _buildQuickActions(context, dm),
+              ],
+            ),
+          ),
+          const SizedBox(width: 20),
+          Expanded(
+            flex: 6,
+            child: _buildDeviceGrid(context, dm),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildCameraArea(BuildContext context) {
+    final width = MediaQuery.of(context).size.width - 32;
+    final height = width / _videoAspectRatio;
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16),
+      height: height,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.08),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: Stack(
+        children: [
+          if (_isVideoActive && _videoController != null)
+            Positioned.fill(
+              child: VideoPlayer(_videoController!),
+            )
+          else ...[
+            Positioned.fill(
+              child: Container(
+                decoration: const BoxDecoration(
+                  image: DecorationImage(
+                    image: AssetImage('assets/img/bg.jpg'),
+                    fit: BoxFit.cover,
+                  ),
+                ),
+              ),
+            ),
+            Positioned.fill(
+              child: Container(
+                color: Colors.black.withValues(alpha: 0.45),
+              ),
+            ),
+            Positioned.fill(
+              child: GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: _initVideo,
+                child: Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Container(
+                        width: 56,
+                        height: 56,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: Colors.white.withValues(alpha: 0.15),
+                        ),
+                        child: Icon(
+                          Icons.videocam_rounded,
+                          size: 28,
+                          color: Colors.white.withValues(alpha: 0.8),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      Text(
+                        '点击开启实时监控',
+                        style: TextStyle(
+                          color: Colors.white.withValues(alpha: 0.7),
+                          fontSize: 13,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ],
+          if (_isVideoLoading)
+            const Positioned.fill(
+              child: Center(
+                child: SizedBox(
+                  width: 32,
+                  height: 32,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2.5,
+                    color: Colors.white,
+                  ),
+                ),
+              ),
+            ),
+          if (_isVideoActive) ...[
+            Positioned(
+              top: 0,
+              left: 0,
+              right: 0,
+              child: Container(
+                height: 36,
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [
+                      Colors.black.withValues(alpha: 0.4),
+                      Colors.transparent,
+                    ],
+                  ),
+                ),
+                padding: const EdgeInsets.symmetric(horizontal: 10),
+                child: Row(
+                  children: [
+                    AnimatedBuilder(
+                      animation: _recAnimController,
+                      builder: (_, child) => Opacity(
+                        opacity: 0.3 + _recAnimController.value * 0.7,
+                        child: child,
+                      ),
+                      child: Container(
+                        width: 8,
+                        height: 8,
+                        decoration: const BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: Colors.redAccent,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    const Text('REC',
+                        style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                            letterSpacing: 1)),
+                    const Spacer(),
+                    Text(_currentTime,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 12,
+                          fontFamily: 'monospace',
+                        )),
+                  ],
+                ),
+              ),
+            ),
+            Positioned(
+              bottom: 6,
+              right: 6,
+              child: Container(
+                decoration: BoxDecoration(
+                  color: Colors.black26,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: IconButton(
+                  icon: const Icon(Icons.close,
+                      color: Colors.white, size: 18),
+                  onPressed: _toggleVideo,
+                  padding: const EdgeInsets.all(6),
+                  constraints: const BoxConstraints(),
+                ),
+              ),
+            ),
+          ],
+        ],
+      )
+    );
+  }
+
+  Widget _buildLandscapeBody(BuildContext context, DeviceManager dm) {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        children: [
+          _buildEnvStrip(context, dm),
+          const SizedBox(height: 12),
+          _buildCameraArea(context),
+          const SizedBox(height: 12),
+          _buildQuickActions(context, dm),
+          const SizedBox(height: 12),
+          _buildDeviceGrid(context, dm),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMobileBody(BuildContext context, DeviceManager dm) {
+    return SingleChildScrollView(
+      child: Column(
+        children: [
+          _buildEnvStrip(context, dm),
+          _buildQuickActions(context, dm),
+          _buildCameraArea(context),
+          const SizedBox(height: 12),
+          _buildDeviceGrid(context, dm),
+          const SizedBox(height: 20),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDeviceGrid(BuildContext context, DeviceManager dm) {
+    return GridView(
+      padding: const EdgeInsets.fromLTRB(12, 0, 12, 20),
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 2,
+        mainAxisSpacing: 10,
+        crossAxisSpacing: 10,
+        childAspectRatio: 1.05,
+      ),
+      children: [
+        _buildMiCard(
+          context: context,
+          icon: Icons.air,
+          iconColor: Colors.green,
+          title: '通风设备',
+          subtitle: '',
+          valueText: '${(_windAnim.value * 3).toStringAsFixed(1)} 级',
+          valueLabel: '${dm.temperature}°C  ${dm.humidity}%',
+          isOn: dm.motorStatus,
+          onChanged: (v) =>
+              dm.controlDevice('motor_control', v ? 'ON' : 'OFF'),
+        ),
+        _buildMiCard(
+          context: context,
+          icon: Icons.wb_sunny_outlined,
+          iconColor: Colors.orangeAccent,
+          title: '补光设备',
+          subtitle: '',
+          valueText: '${dm.illumination} lux',
+          valueLabel: '光照',
+          isOn: dm.lightStatus,
+          onChanged: (v) =>
+              dm.controlDevice('light_control', v ? 'ON' : 'OFF'),
+        ),
+        _buildMiCard(
+          context: context,
+          icon: Icons.water_drop_outlined,
+          iconColor: Colors.blueAccent,
+          title: '灌溉泵 1',
+          subtitle: '',
+          valueText: '${(_flow1Anim.value * 120).toInt()} L/min',
+          valueLabel: '流量',
+          isOn: pump1,
+          onChanged: (v) {
+            setState(() => pump1 = v);
+            _syncAnimations();
+          },
+        ),
+        _buildMiCard(
+          context: context,
+          icon: Icons.water_drop_outlined,
+          iconColor: Colors.blueAccent,
+          title: '灌溉泵 2',
+          subtitle: '',
+          valueText: '${(_flow2Anim.value * 120).toInt()} L/min',
+          valueLabel: '流量',
+          isOn: pump2,
+          onChanged: (v) {
+            setState(() => pump2 = v);
+            _syncAnimations();
+          },
+        ),
       ],
+    );
+  }
+
+  Widget _buildMiCard({
+    required BuildContext context,
+    required IconData icon,
+    required Color iconColor,
+    required String title,
+    required String subtitle,
+    required String valueText,
+    required String valueLabel,
+    required bool isOn,
+    required ValueChanged<bool> onChanged,
+  }) {
+    final cs = Theme.of(context).colorScheme;
+    return GestureDetector(
+      onTap: () => onChanged(!isOn),
+      child: Container(
+        decoration: BoxDecoration(
+          color: cs.surfaceContainerLow,
+          borderRadius: BorderRadius.circular(18),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.03),
+              blurRadius: 8,
+              offset: const Offset(0, 3),
+            ),
+          ],
+        ),
+        padding: const EdgeInsets.fromLTRB(12, 14, 12, 12),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Row(
+              children: [
+                Container(
+                  width: 40,
+                  height: 40,
+                  decoration: BoxDecoration(
+                    color: iconColor.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Icon(icon, color: iconColor, size: 22),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        title,
+                        style: TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.w800,
+                          color: cs.onSurface,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      if (subtitle.isNotEmpty) ...[
+                        const SizedBox(height: 1),
+                        Text(
+                          subtitle,
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: cs.onSurfaceVariant,
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        valueText,
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          color: cs.onSurface,
+                        ),
+                      ),
+                      Text(
+                        valueLabel,
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: cs.onSurfaceVariant,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                _PowerSwitch(
+                  isOn: isOn,
+                  activeColor: iconColor,
+                  onToggle: () => onChanged(!isOn),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
 
-class _FullscreenCameraPage extends StatelessWidget {
-  final CameraController controller;
+class _PowerSwitch extends StatelessWidget {
+  const _PowerSwitch({
+    required this.isOn,
+    required this.activeColor,
+    required this.onToggle,
+  });
 
-  const _FullscreenCameraPage({required this.controller});
+  final bool isOn;
+  final Color activeColor;
+  final VoidCallback onToggle;
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.black,
-      body: Stack(
-        children: [
-          Center(child: CameraPreview(controller)),
-          Positioned(
-            top: MediaQuery.of(context).padding.top + 8,
-            right: 8,
-            child: Container(
+    final Color wellColor = isOn
+        ? activeColor.withValues(alpha: 0.18)
+        : Colors.grey.shade200;
+    final Color iconColor = isOn ? activeColor : Colors.grey.shade500;
+    final Color borderColor = isOn
+        ? activeColor.withValues(alpha: 0.30)
+        : Colors.grey.shade400;
+    return GestureDetector(
+      onTap: onToggle,
+      child: SizedBox(
+        width: 48,
+        height: 48,
+        child: Stack(
+          alignment: Alignment.center,
+          children: [
+            Container(
+              width: 48,
+              height: 48,
               decoration: BoxDecoration(
-                color: Colors.black38,
-                borderRadius: BorderRadius.circular(20),
-              ),
-              child: IconButton(
-                icon: const Icon(Icons.close, color: Colors.white, size: 22),
-                onPressed: () => Navigator.of(context).pop(),
-                padding: const EdgeInsets.all(8),
-                constraints: const BoxConstraints(),
+                shape: BoxShape.circle,
+                color: wellColor,
+                border: Border.all(color: borderColor, width: 1.5),
               ),
             ),
-          ),
-        ],
+            Container(
+              width: 36,
+              height: 36,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: isOn
+                      ? activeColor.withValues(alpha: 0.55)
+                      : Colors.grey.shade400,
+                  width: 1.2,
+                ),
+              ),
+              child: Icon(
+                Icons.power_settings_new,
+                size: 19,
+                color: iconColor,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
