@@ -123,7 +123,7 @@ class _LoginPageState extends State<LoginPage> {
                 padding: const EdgeInsets.fromLTRB(48, 100, 48, 40),
                 child: ConstrainedBox(
                   constraints: const BoxConstraints(maxWidth: 460),
-                  child: _buildForm(context, cs),
+                  child: _buildForm(context, cs, showHeader: true),
                 ),
               ),
             ),
@@ -165,7 +165,7 @@ class _LoginPageState extends State<LoginPage> {
                   ),
                 ),
                 const SizedBox(height: 40),
-                _buildForm(context, cs),
+                _buildForm(context, cs, showHeader: false),
               ],
             ),
           ),
@@ -174,27 +174,29 @@ class _LoginPageState extends State<LoginPage> {
     );
   }
 
-  Widget _buildForm(BuildContext context, ColorScheme cs) {
+  Widget _buildForm(BuildContext context, ColorScheme cs, {bool showHeader = true}) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        // Text(
-        //   "欢迎登录",
-        //   style: TextStyle(
-        //     fontSize: 26,
-        //     fontWeight: FontWeight.bold,
-        //     color: cs.onSurface,
-        //   ),
-        // ),
-        // const SizedBox(height: 8),
-        // Text(
-        //   "登录您的禾寻账号",
-        //   style: TextStyle(
-        //     fontSize: 14,
-        //     color: cs.onSurfaceVariant,
-        //   ),
-        // ),
-        // const SizedBox(height: 28),
+        if (showHeader) ...[
+          Text(
+            "欢迎回来",
+            style: TextStyle(
+              fontSize: 26,
+              fontWeight: FontWeight.bold,
+              color: cs.onSurface,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            "登录您的禾寻账号",
+            style: TextStyle(
+              fontSize: 14,
+              color: cs.onSurfaceVariant,
+            ),
+          ),
+          const SizedBox(height: 28),
+        ],
         Container(
           decoration: BoxDecoration(
             color: cs.surface,

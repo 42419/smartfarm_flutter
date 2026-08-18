@@ -794,20 +794,32 @@ class _DeviceControlPageState extends State<DeviceControlPage>
         children: [
           Expanded(
             flex: 4,
-            child: Column(
-              children: [
-                _buildEnvStrip(context, dm),
-                const SizedBox(height: 12),
-                _buildCameraArea(context),
-                const SizedBox(height: 12),
-                _buildQuickActions(context, dm),
-              ],
+            child: SingleChildScrollView(
+              child: Column(
+                children: [
+                  _buildEnvStrip(context, dm),
+                  const SizedBox(height: 12),
+                  _buildCameraArea(context),
+                  const SizedBox(height: 12),
+                  _buildQuickActions(context, dm),
+                ],
+              ),
             ),
           ),
           const SizedBox(width: 20),
           Expanded(
             flex: 6,
-            child: _buildDeviceGrid(context, dm),
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                final itemWidth = (constraints.maxWidth - 10) / 2;
+                final itemHeight = itemWidth / 1.05;
+                final gridHeight = itemHeight * 2 + 10;
+                return SizedBox(
+                  height: gridHeight,
+                  child: _buildDeviceGrid(context, dm),
+                );
+              },
+            ),
           ),
         ],
       ),
