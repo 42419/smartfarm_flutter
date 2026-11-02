@@ -1,9 +1,11 @@
+import 'dart:async';
+import 'dart:math';
+
 import 'package:flutter/material.dart';
 
 import '../../config/config.dart';
 import '../../models/sensor_trend_point.dart';
 import '../../services/auth_service.dart';
-import '../../services/crop_service.dart';
 import '../../utils/responsive.dart';
 import '../sensor_history/sensor_history_page.dart';
 import '../../services/device_manager.dart';
@@ -13,13 +15,9 @@ import 'widgets/data_card.dart';
 import 'widgets/trend_section.dart';
 
 class _SelectOption {
-  const _SelectOption({
-    required this.label,
-    this.expandedLabel,
-  });
+  const _SelectOption({required this.label});
 
   final String label;
-  final String? expandedLabel;
 }
 
 class DataMonitorPage extends StatefulWidget {
@@ -31,23 +29,33 @@ class DataMonitorPage extends StatefulWidget {
 
 class _DataMonitorPageState extends State<DataMonitorPage>
     with AutomaticKeepAliveClientMixin {
+  static const _eastFarmLabel = '东郊农场';
+  static const _experimentGreenhouseLabel = '实验大棚';
+  static const _simInterval = Duration(seconds: 3);
+
   int _selectedTimeIndex = 0;
   int _selectedMetricIndex = 0;
   bool _isTrendLoading = false;
   List<SensorTrendPoint> _trendPoints = const [];
   List<_SelectOption> _greenhouseOptions = const [
-    _SelectOption(label: '全部大棚'),
+    _SelectOption(label: _experimentGreenhouseLabel),
   ];
   late final List<_SelectOption> _farmOptions;
   final List<_SelectOption> _indicatorOptions = const [
     _SelectOption(label: '全部指标'),
-    _SelectOption(label: '环境指标'),
-    _SelectOption(label: '灌溉指标'),
-    _SelectOption(label: '告警优先'),
+    _SelectOption(label: '温度指标'),
+    _SelectOption(label: '湿度指标'),
+    _SelectOption(label: '光照强度指标'),
   ];
   String _selectedFarmLabel = '';
-  String _selectedGreenhouseLabel = '全部大棚';
+  String _selectedGreenhouseLabel = _experimentGreenhouseLabel;
   String _selectedIndicatorLabel = '全部指标';
+
+  Timer? _simTimer;
+  double _simTemp = 30;
+  double _simHumidity = 70;
+  double _simSoilMoisture = 55;
+  double _simIllumination = 4000;
 
   final List<MetricOption> _metrics = const [
     MetricOption(label: '温度', color: Colors.orangeAccent, column: 'temperature'),
@@ -65,20 +73,24 @@ class _DataMonitorPageState extends State<DataMonitorPage>
     final currentFarm = AuthService.instance.currentUser?.farm.trim();
     final farmName = currentFarm != null && currentFarm.isNotEmpty
         ? currentFarm
-        : '东郊农场';
+        : '实验农场';
     _farmOptions = [
       _SelectOption(label: farmName),
-      const _SelectOption(label: '实验农场'),
-      const _SelectOption(label: '西区农场'),
+      const _SelectOption(label: '东郊农场'),
     ];
     _selectedFarmLabel = _farmOptions.first.label;
+    _greenhouseOptions = _greenhouseOptionsForFarm(_selectedFarmLabel);
+    _regenerateSimulated();
+    _simTimer = Timer.periodic(_simInterval, (_) {
+      if (!_useRealData && mounted) setState(_regenerateSimulated);
+    });
     DeviceManager.instance.addListener(_onDeviceUpdate);
-    _loadGreenhouseOptions();
     _loadTrendData(forceRefresh: true);
   }
 
   @override
   void dispose() {
+    _simTimer?.cancel();
     DeviceManager.instance.removeListener(_onDeviceUpdate);
     super.dispose();
   }
@@ -87,29 +99,32 @@ class _DataMonitorPageState extends State<DataMonitorPage>
     if (mounted) setState(() {});
   }
 
-  Future<void> _loadGreenhouseOptions() async {
-    final crops = await CropService.instance.fetchCrops();
-    if (!mounted || crops.isEmpty) return;
-
-    final options = <_SelectOption>[
-      const _SelectOption(label: '全部大棚'),
-      ...List.generate(
-        crops.length,
-        (index) => _SelectOption(
-          label: '${index + 1}号大棚',
-          expandedLabel: '${index + 1}号大棚 - ${crops[index].cropName}',
-        ),
-      ),
+  List<_SelectOption> _greenhouseOptionsForFarm(String farmLabel) {
+    if (farmLabel == _eastFarmLabel) {
+      return List.generate(
+        12,
+        (index) => _SelectOption(label: '${index + 1}号大棚'),
+      );
+    }
+    return const [
+      _SelectOption(label: _experimentGreenhouseLabel),
     ];
+  }
 
-    setState(() {
-      _greenhouseOptions = options;
-      if (!_greenhouseOptions.any(
-        (item) => item.label == _selectedGreenhouseLabel,
-      )) {
-        _selectedGreenhouseLabel = _greenhouseOptions.first.label;
-      }
-    });
+  bool get _useRealData =>
+      _selectedFarmLabel != _eastFarmLabel &&
+      _selectedGreenhouseLabel == _experimentGreenhouseLabel;
+
+  static double _step(double current, double min, double max, double delta) {
+    return (current + (Random().nextDouble() * 2 - 1) * delta)
+        .clamp(min, max);
+  }
+
+  void _regenerateSimulated() {
+    _simTemp = _step(_simTemp, 25, 35, 0.5);
+    _simHumidity = _step(_simHumidity, 55, 85, 2);
+    _simSoilMoisture = _step(_simSoilMoisture, 40, 70, 2);
+    _simIllumination = _step(_simIllumination, 2000, 6000, 200);
   }
 
   TrendRange get _selectedRange {
@@ -147,9 +162,15 @@ class _DataMonitorPageState extends State<DataMonitorPage>
   Widget build(BuildContext context) {
     super.build(context);
     final dm = DeviceManager.instance;
-    final currentTemp = dm.temperature;
-    final currentHumidity = dm.humidity;
-    final currentIllumination = dm.illumination;
+    final isSimulated = !_useRealData;
+    final currentTemp = isSimulated ? _simTemp.toStringAsFixed(1) : dm.temperature;
+    final currentHumidity =
+        isSimulated ? _simHumidity.toStringAsFixed(1) : dm.humidity;
+    final currentIllumination =
+        isSimulated ? _simIllumination.toStringAsFixed(0) : dm.illumination;
+    final currentSoilMoisture = isSimulated
+        ? _simSoilMoisture.toStringAsFixed(1)
+        : _calcSoilMoisture(dm.temperature, dm.humidity);
     final isLarge = Responsive.isLargeScreen(context);
 
     return Scaffold(
@@ -161,15 +182,85 @@ class _DataMonitorPageState extends State<DataMonitorPage>
         elevation: 0,
       ),
       body: isLarge
-          ? _buildLandscapeBody(
-              context, currentTemp, currentHumidity, currentIllumination)
-          : _buildPortraitBody(
-              context, currentTemp, currentHumidity, currentIllumination),
+          ? _buildLandscapeBody(context, currentTemp, currentHumidity,
+              currentSoilMoisture, currentIllumination)
+          : _buildPortraitBody(context, currentTemp, currentHumidity,
+              currentSoilMoisture, currentIllumination),
     );
   }
 
+  List<Widget> _buildDataCards(String currentTemp, String currentHumidity,
+      String currentSoilMoisture, String currentIllumination) {
+    final valColor = Theme.of(context).colorScheme.onSurface;
+    return [
+      DataCard(
+        icon: Icons.thermostat,
+        iconColor: Colors.orangeAccent,
+        val: currentTemp,
+        unit: '°C',
+        label: '温度',
+        range: '15°C ~ 30°C',
+        status: '正常',
+        statusColor: Colors.green,
+        valColor: valColor,
+      ),
+      DataCard(
+        icon: Icons.water_drop_outlined,
+        iconColor: Colors.blueAccent,
+        val: currentHumidity,
+        unit: '%',
+        label: '空气湿度',
+        range: '40% ~ 80%',
+        status: '正常',
+        statusColor: Colors.green,
+        valColor: valColor,
+      ),
+      DataCard(
+        icon: Icons.eco_outlined,
+        iconColor: Colors.green,
+        val: currentSoilMoisture,
+        unit: '%',
+        label: '土壤湿度',
+        range: '25% ~ 70%',
+        status: _soilMoistureStatus(currentSoilMoisture),
+        statusColor: _soilMoistureStatusColor(currentSoilMoisture),
+        valColor: valColor,
+      ),
+      DataCard(
+        icon: Icons.wb_sunny_outlined,
+        iconColor: Colors.yellow.shade700,
+        val: currentIllumination,
+        unit: '',
+        label: '光照强度(lux)',
+        range: '1000 ~ 8000',
+        status: '正常',
+        statusColor: Colors.green,
+        valColor: valColor,
+      ),
+    ];
+  }
+
+  List<Widget> _filteredDataCards(String currentTemp, String currentHumidity,
+      String currentSoilMoisture, String currentIllumination) {
+    final cards = _buildDataCards(
+        currentTemp, currentHumidity, currentSoilMoisture, currentIllumination);
+    switch (_selectedIndicatorLabel) {
+      case '温度指标':
+        return [cards[0]];
+      case '湿度指标':
+        return [cards[1], cards[2]];
+      case '光照强度指标':
+        return [cards[3]];
+      default:
+        return cards;
+    }
+  }
+
   Widget _buildLandscapeBody(BuildContext context, String currentTemp,
-      String currentHumidity, String currentIllumination) {
+      String currentHumidity, String currentSoilMoisture,
+      String currentIllumination) {
+    final cards = _filteredDataCards(
+        currentTemp, currentHumidity, currentSoilMoisture, currentIllumination);
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
       child: Column(
@@ -183,66 +274,22 @@ class _DataMonitorPageState extends State<DataMonitorPage>
                   fontWeight: FontWeight.bold,
                   color: Theme.of(context).colorScheme.onSurface)),
           const SizedBox(height: 12),
-          Row(
-            children: [
-              Expanded(
-                child: DataCard(
-                  icon: Icons.thermostat,
-                  iconColor: Colors.orangeAccent,
-                  val: currentTemp,
-                  unit: '°C',
-                  label: '温度',
-                  range: '15°C ~ 30°C',
-                  status: '正常',
-                  statusColor: Colors.green,
-                  valColor: Theme.of(context).colorScheme.onSurface,
-                ),
+          if (cards.length == 1)
+            Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 420),
+                child: cards.first,
               ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: DataCard(
-                  icon: Icons.water_drop_outlined,
-                  iconColor: Colors.blueAccent,
-                  val: currentHumidity,
-                  unit: '%',
-                  label: '空气湿度',
-                  range: '40% ~ 80%',
-                  status: '正常',
-                  statusColor: Colors.green,
-                  valColor: Theme.of(context).colorScheme.onSurface,
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: DataCard(
-                  icon: Icons.eco_outlined,
-                  iconColor: Colors.green,
-                  val: _calcSoilMoisture(currentTemp, currentHumidity),
-                  unit: '%',
-                  label: '土壤湿度',
-                  range: '25% ~ 70%',
-                  status: _soilMoistureStatus(currentTemp, currentHumidity),
-                  statusColor:
-                      _soilMoistureStatusColor(currentTemp, currentHumidity),
-                  valColor: Theme.of(context).colorScheme.onSurface,
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: DataCard(
-                  icon: Icons.wb_sunny_outlined,
-                  iconColor: Colors.yellow.shade700,
-                  val: currentIllumination,
-                  unit: '',
-                  label: '光照强度(lux)',
-                  range: '1000 ~ 8000',
-                  status: '正常',
-                  statusColor: Colors.green,
-                  valColor: Theme.of(context).colorScheme.onSurface,
-                ),
-              ),
-            ],
-          ),
+            )
+          else
+            Row(
+              children: [
+                for (var i = 0; i < cards.length; i++) ...[
+                  if (i > 0) const SizedBox(width: 12),
+                  Expanded(child: cards[i]),
+                ],
+              ],
+            ),
           const SizedBox(height: 24),
           TrendSection(
             metrics: _metrics,
@@ -289,7 +336,8 @@ class _DataMonitorPageState extends State<DataMonitorPage>
   }
 
   Widget _buildPortraitBody(BuildContext context, String currentTemp,
-      String currentHumidity, String currentIllumination) {
+      String currentHumidity, String currentSoilMoisture,
+      String currentIllumination) {
     return SingleChildScrollView(
       padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
       child: Column(
@@ -303,7 +351,8 @@ class _DataMonitorPageState extends State<DataMonitorPage>
                   fontWeight: FontWeight.bold,
                   color: Theme.of(context).colorScheme.onSurface)),
           const SizedBox(height: 12),
-          _buildSensorGrid(currentTemp, currentHumidity, currentIllumination),
+          _buildSensorGrid(
+              currentTemp, currentHumidity, currentSoilMoisture, currentIllumination),
           const SizedBox(height: 24),
           TrendSection(
             metrics: _metrics,
@@ -360,7 +409,13 @@ class _DataMonitorPageState extends State<DataMonitorPage>
             options: _farmOptions,
             onChanged: (value) {
               if (value == null) return;
-              setState(() => _selectedFarmLabel = value);
+              setState(() {
+                _selectedFarmLabel = value;
+                final options = _greenhouseOptionsForFarm(value);
+                _greenhouseOptions = options;
+                _selectedGreenhouseLabel = options.first.label;
+                if (!_useRealData) _regenerateSimulated();
+              });
             },
           ),
         ),
@@ -372,7 +427,10 @@ class _DataMonitorPageState extends State<DataMonitorPage>
             options: _greenhouseOptions,
             onChanged: (value) {
               if (value == null) return;
-              setState(() => _selectedGreenhouseLabel = value);
+              setState(() {
+                _selectedGreenhouseLabel = value;
+                if (!_useRealData) _regenerateSimulated();
+              });
             },
           ),
         ),
@@ -426,7 +484,7 @@ class _DataMonitorPageState extends State<DataMonitorPage>
                 (option) => DropdownMenuItem<String>(
                   value: option.label,
                   child: Text(
-                    option.expandedLabel ?? option.label,
+                    option.label,
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
@@ -438,62 +496,30 @@ class _DataMonitorPageState extends State<DataMonitorPage>
     );
   }
 
-  Widget _buildSensorGrid(
-      String currentTemp, String currentHumidity, String currentIllumination) {
+  double _cardHeight(BuildContext context) {
+    // 基准：竖屏两列布局的单卡片高度，单卡片放大时仅加宽、高度保持不变
+    final width = MediaQuery.sizeOf(context).width;
+    final cardWidth = (width - 32 - 12) / 2;
+    return cardWidth / 1.05;
+  }
+
+  Widget _buildSensorGrid(String currentTemp, String currentHumidity,
+      String currentSoilMoisture, String currentIllumination) {
+    final cards = _filteredDataCards(
+        currentTemp, currentHumidity, currentSoilMoisture, currentIllumination);
+    final columnCount = cards.length == 1
+        ? 1
+        : cards.length == 2
+            ? 2
+            : Responsive.gridColumns(context);
     return GridView.count(
-      crossAxisCount: Responsive.gridColumns(context),
+      crossAxisCount: columnCount,
       mainAxisSpacing: 12,
       crossAxisSpacing: 12,
-      childAspectRatio: 1.05,
+      mainAxisExtent: _cardHeight(context),
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
-      children: [
-        DataCard(
-          icon: Icons.thermostat,
-          iconColor: Colors.orangeAccent,
-          val: currentTemp,
-          unit: '°C',
-          label: '温度',
-          range: '15°C ~ 30°C',
-          status: '正常',
-          statusColor: Colors.green,
-          valColor: Theme.of(context).colorScheme.onSurface,
-        ),
-        DataCard(
-          icon: Icons.water_drop_outlined,
-          iconColor: Colors.blueAccent,
-          val: currentHumidity,
-          unit: '%',
-          label: '空气湿度',
-          range: '40% ~ 80%',
-          status: '正常',
-          statusColor: Colors.green,
-          valColor: Theme.of(context).colorScheme.onSurface,
-        ),
-        DataCard(
-          icon: Icons.eco_outlined,
-          iconColor: Colors.green,
-          val: _calcSoilMoisture(currentTemp, currentHumidity),
-          unit: '%',
-          label: '土壤湿度',
-          range: '25% ~ 70%',
-          status: _soilMoistureStatus(currentTemp, currentHumidity),
-          statusColor:
-              _soilMoistureStatusColor(currentTemp, currentHumidity),
-          valColor: Theme.of(context).colorScheme.onSurface,
-        ),
-        DataCard(
-          icon: Icons.wb_sunny_outlined,
-          iconColor: Colors.yellow.shade700,
-          val: currentIllumination,
-          unit: '',
-          label: '光照强度(lux)',
-          range: '1000 ~ 8000',
-          status: '正常',
-          statusColor: Colors.green,
-          valColor: Theme.of(context).colorScheme.onSurface,
-        ),
-      ],
+      children: cards,
     );
   }
 
@@ -506,8 +532,8 @@ class _DataMonitorPageState extends State<DataMonitorPage>
     return result.toStringAsFixed(1);
   }
 
-  String _soilMoistureStatus(String tempStr, String humStr) {
-    final v = double.tryParse(_calcSoilMoisture(tempStr, humStr));
+  String _soilMoistureStatus(String soilMoisture) {
+    final v = double.tryParse(soilMoisture);
     if (v == null) return '未知';
     if (v < 25) return '过低';
     if (v < 40) return '偏低';
@@ -515,8 +541,8 @@ class _DataMonitorPageState extends State<DataMonitorPage>
     return '偏高';
   }
 
-  Color _soilMoistureStatusColor(String tempStr, String humStr) {
-    switch (_soilMoistureStatus(tempStr, humStr)) {
+  Color _soilMoistureStatusColor(String soilMoisture) {
+    switch (_soilMoistureStatus(soilMoisture)) {
       case '正常':
         return Colors.green;
       case '偏低':

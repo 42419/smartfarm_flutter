@@ -62,7 +62,6 @@ class _OverviewPageState extends State<OverviewPage> {
     _farmOptions = [
       _SelectOption(label: farmName),
       const _SelectOption(label: '实验农场'),
-      const _SelectOption(label: '西区农场'),
     ];
     _selectedFarmLabel = _farmOptions.first.label;
     _loadCrops();
