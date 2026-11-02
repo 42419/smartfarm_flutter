@@ -71,6 +71,7 @@ class _DeviceControlPageState extends State<DeviceControlPage>
   double _videoAspectRatio = 16 / 9;
   bool _isVideoActive = false;
   bool _isVideoLoading = false;
+  bool _isVideoToggling = false;
   Timer? _timeTimer;
   String _currentTime = '';
 
@@ -156,53 +157,81 @@ class _DeviceControlPageState extends State<DeviceControlPage>
     _flow2AnimController.dispose();
     _recAnimController.dispose();
     DeviceManager.instance.removeListener(_onDeviceUpdate);
-    _disposeVideo();
+
+    // 这里不能调 _disposeVideo()：它内部会 setState，销毁阶段调用会抛异常。
+    // 直接同步摘除引用并释放，controller 的异步释放无需等待。
+    final controller = _videoController;
+    _videoController = null;
+    _isVideoActive = false;
+    controller?.dispose();
+
     super.dispose();
   }
 
   Future<void> _initVideo() async {
     if (_isVideoLoading) return;
+    if (!mounted) return;
     setState(() => _isVideoLoading = true);
 
     try {
-      if (_videoController == null) {
-        _videoController = VideoPlayerController.asset('assets/video/video.mp4');
-        await _videoController!.initialize();
-        _videoAspectRatio = _videoController!.value.aspectRatio;
+      // 用局部变量持有 controller：initialize() 期间页面可能被销毁，
+      // 此时 _videoController 已被置空，继续用 ! 解包会抛异常。
+      var controller = _videoController;
+      if (controller == null) {
+        controller = VideoPlayerController.asset('assets/video/video.mp4');
+        _videoController = controller;
+        await controller.initialize();
+        _videoAspectRatio = controller.value.aspectRatio;
       }
-      _videoController!.setLooping(true);
-      _videoController!.play();
-      if (mounted) {
-        setState(() {
-          _isVideoActive = true;
-          _isVideoLoading = false;
-        });
-        _startTimer();
-      }
+      await controller.setLooping(true);
+      await controller.play();
+
+      if (!mounted) return;
+      setState(() {
+        _isVideoActive = true;
+        _isVideoLoading = false;
+      });
+      _startTimer();
     } catch (e) {
-      if (mounted) {
-        showAppToast('视频加载失败');
-        setState(() => _isVideoLoading = false);
-      }
+      if (!mounted) return;
+      showAppToast('视频加载失败');
+      setState(() => _isVideoLoading = false);
     }
   }
 
   Future<void> _disposeVideo() async {
     _stopTimer();
-    if (_videoController != null) {
-      await _videoController!.pause();
-      await _videoController!.dispose();
-      _videoController = null;
-    }
+    // 先同步摘掉引用并翻转状态，再异步释放底层资源。
+    // dispose() 一开始就会把 controller 标记为已释放，如果此时仍挂在字段上，
+    // 每帧都会重建的 VideoPlayer 会拿到已释放的 controller 并抛
+    // "A VideoPlayerController was used after being disposed"，表现为闪一帧红色错误块。
+    final controller = _videoController;
+    _videoController = null;
     _isVideoActive = false;
+    if (mounted) setState(() {});
+
+    if (controller != null) {
+      try {
+        await controller.pause();
+      } catch (_) {
+        // controller 可能已被释放，忽略
+      }
+      await controller.dispose();
+    }
   }
 
   Future<void> _toggleVideo() async {
-    if (_isVideoActive) {
-      await _disposeVideo();
-      if (mounted) setState(() {});
-    } else {
-      await _initVideo();
+    // 挡住连点：两次并发 _disposeVideo 会在第二次解包时拿到 null
+    if (_isVideoToggling) return;
+    _isVideoToggling = true;
+    try {
+      if (_isVideoActive) {
+        await _disposeVideo();
+      } else {
+        await _initVideo();
+      }
+    } finally {
+      _isVideoToggling = false;
     }
   }
 
